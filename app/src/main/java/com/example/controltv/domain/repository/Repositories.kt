@@ -31,6 +31,13 @@ interface LastDeviceStore {
     fun save(device: TvDevice)
 }
 
+/** Las TVs que ya se conectaron bien alguna vez (así sabemos si hace falta explicar cómo prepararlas). */
+interface PairedDevices {
+    fun isPaired(ip: String): Boolean
+
+    fun markPaired(ip: String)
+}
+
 /** Las últimas búsquedas, la más nueva primero. */
 interface SearchHistory {
     fun recent(): List<String>

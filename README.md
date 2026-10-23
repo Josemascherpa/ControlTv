@@ -24,7 +24,8 @@ grande:
 |---|---|---|
 | **Samsung** (Tizen, 2016+) | WebSocket, puertos 8001/8002 | Aceptar el mensaje "¿Permitir?" en la TV |
 | **LG** (webOS) | WebSocket SSAP, puertos 3000/3001 | Aceptar el mensaje en la TV |
-| **Google TV / Android TV / Fire TV** | ADB por red, puerto 5555 | Activar la depuración y aceptar "¿Permitir depuración?" |
+| **Google TV / Android TV** (TCL, Hisense, Philips, Sony nuevas, Chromecast…) | Android TV Remote v2 (TLS + protobuf), puertos 6466/6467 | Escribir en el teléfono el código que muestra la TV |
+| **Fire TV** y Android TV viejas | ADB por red, puerto 5555 | Activar la depuración (la app explica cómo, paso a paso) y aceptar "¿Permitir depuración?" |
 | **Roku** (TCL, Hisense, onn, Philco…) | HTTP ECP, puerto 8060 | Activar *Control por apps móviles* en los ajustes |
 | **Sony Bravia** | HTTP IP Control + IRCC, puerto 80 | Elegir una clave en *Ajustes > Red > Control IP* y escribirla en la app |
 
@@ -32,6 +33,9 @@ Las marcas se eligieron según las más vendidas (Samsung, TCL, Hisense, LG). Mu
 y otras traen Roku TV o Google TV adentro, así que quedan cubiertas.
 
 > Roku no tiene navegador de internet: en esas TVs la app usa el buscador propio de la TV.
+
+> Google TV usa el mismo protocolo que la app oficial "Google TV" del teléfono, basado en
+> [androidtvremote2](https://github.com/tronikos/androidtvremote2) (Apache 2.0). No necesita modo desarrollador.
 
 ## Cómo está hecho
 
@@ -43,6 +47,8 @@ y otras traen Roku TV o Google TV adentro, así que quedan cubiertas.
 - Cada marca vive en su propia carpeta (`data/tv/<marca>`) con su controlador y su detector,
   así sumar una marca nueva no obliga a tocar el resto.
 - Errores tipados (`TvError`) que la UI traduce a mensajes simples.
+- Librerías: OkHttp (HTTP/WebSocket), dadb (ADB), protobuf-lite (mensajes de Google TV, generados
+  desde `app/src/main/proto`) y BouncyCastle (certificado del teléfono para Google TV).
 
 Las reglas completas del proyecto (estilo, arquitectura, idioma, cómo agregar una marca) están en
 [`CLAUDE.md`](CLAUDE.md).

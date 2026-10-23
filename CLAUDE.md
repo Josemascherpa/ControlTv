@@ -6,7 +6,7 @@ App Android (Kotlin + Jetpack Compose) que usa el teléfono como control remoto 
 
 La app la tiene que poder usar cualquiera sin explicaciones, pensando sobre todo en personas mayores
 que no saben qué es una IP ni un "navegador".
-
+ 
 - Que funcione sola: detectar las TVs automáticamente y reconectar a la última sin pedir nada.
 - Letra grande y botones grandes, con el nombre escrito debajo del ícono (no sólo símbolos).
 - Pocas opciones por pantalla. Separar en pestañas simples ("Control" e "Internet") en vez de
@@ -63,7 +63,7 @@ Tres capas, y las dependencias siempre apuntan hacia adentro (`ui` → `domain` 
   Modelos (`TvDevice`, `TvBrand`, `RemoteKey`), interfaces (`TvController`, repositorios) y
   casos de uso (ej. `BuscarTvsUseCase`, `ConectarTvUseCase`) cuando la lógica no sea trivial.
 - **`data`**: implementaciones concretas. Controladores por marca, escáner de red, preferencias
-  guardadas, clientes HTTP/WebSocket/ADB.
+  guardadas, clientes HTTP/WebSocket/ADB/TLS.
 - **`ui`**: ViewModels y pantallas de Compose. La pantalla no tiene lógica: recibe un estado y
   avisa eventos. El ViewModel sólo usa `domain`.
 
@@ -71,7 +71,15 @@ Regla: `domain` no importa nada de `data` ni de `ui`. Si hace falta, se define u
 `domain` y `data` la implementa.
 
 Equilibrio: aplicar esto con sentido común. Nada de capas o clases que sólo pasen datos de un
-lado a otro sin agregar nada, ni librerías nuevas si no hacen falta.
+lado a otro sin agregar nada.
+
+### Librerías antes que código de bajo nivel
+
+Para formatos y protocolos estándar (protobuf, certificados, criptografía, HTTP, WebSockets) usar
+una librería conocida en vez de escribir a mano bytes, codificaciones o parsers. Nuestro código se
+queda con la lógica de cada TV. Hoy: OkHttp, dadb, protobuf-lite (+ plugin que genera las clases
+desde `app/src/main/proto`) y BouncyCastle. Antes de sumar una, elegir una versión publicada hace
+al menos dos semanas.
 
 ### Asincronía (corrutinas)
 
@@ -112,7 +120,7 @@ controltv/
 │   ├── model/              TvDevice, TvBrand (+ PairingMethod), RemoteKey, ScrollDirection, TvFeature
 │   ├── error/              TvError
 │   ├── controller/         TvController (básico) + TextInput, WebBrowser, ContentSearch; la fábrica
-│   ├── repository/         TvDiscovery, CredentialStore, LastDeviceStore, SearchHistory
+│   ├── repository/         TvDiscovery, CredentialStore, LastDeviceStore, PairedDevices, SearchHistory
 │   ├── session/            TvSession: la TV conectada ahora
 │   ├── web/                WebLinks: arma URLs de búsqueda
 │   └── usecase/            ConnectToTvUseCase, WebSearchUseCase
@@ -121,11 +129,12 @@ controltv/
 │   ├── local/              SharedPreferences (una clase por interfaz)
 │   ├── discovery/          NetworkTvScanner (recorre la red) y la interfaz TvDetector
 │   └── tv/<marca>/         <Marca>Controller + <Marca>Detector; DefaultTvControllerFactory
+│                           (googletv/ además tiene el emparejamiento, la identidad y el canal TLS)
 ├── di/AppContainer.kt      crea y conecta todo (inyección de dependencias a mano)
 └── ui/
     ├── messages/           UserMessage y sus textos
     ├── components/         botones y piezas comunes
-    ├── discovery/          DiscoveryViewModel + DiscoveryScreen
+    ├── discovery/          DiscoveryViewModel + DiscoveryScreen + DebuggingSetupGuide
     └── remote/             RemoteViewModel (+ RemoteActions), RemoteScreen, ControlTab, InternetTab
 ```
 

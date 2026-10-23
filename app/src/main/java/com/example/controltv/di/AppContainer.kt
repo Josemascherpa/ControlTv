@@ -8,10 +8,12 @@ import com.example.controltv.data.discovery.LocalSubnet
 import com.example.controltv.data.discovery.NetworkTvScanner
 import com.example.controltv.data.local.PrefsCredentialStore
 import com.example.controltv.data.local.PrefsLastDeviceStore
+import com.example.controltv.data.local.PrefsPairedDevices
 import com.example.controltv.data.local.PrefsSearchHistory
 import com.example.controltv.data.network.NetworkClients
 import com.example.controltv.data.tv.DefaultTvControllerFactory
 import com.example.controltv.data.tv.android.AndroidTvDetector
+import com.example.controltv.data.tv.googletv.GoogleTvDetector
 import com.example.controltv.data.tv.lg.LgDetector
 import com.example.controltv.data.tv.roku.RokuDetector
 import com.example.controltv.data.tv.samsung.SamsungDetector
@@ -23,6 +25,7 @@ import com.example.controltv.domain.repository.TvDiscovery
 import com.example.controltv.domain.session.TvSession
 import com.example.controltv.domain.usecase.ConnectToTvUseCase
 import com.example.controltv.domain.usecase.WebSearchUseCase
+import java.io.File
 
 /**
  * "Inyección de dependencias" a mano: acá se crean todas las piezas de la app y se conectan
@@ -46,7 +49,9 @@ class AppContainer(context: Context) {
             SamsungDetector(NetworkClients.http),
             LgDetector(),
             RokuDetector(NetworkClients.http),
-            // Antes que Sony: si una Bravia (Google TV) tiene ADB activado, usamos ADB y no pide clave.
+            // Google TV antes que ADB y Sony: no necesita modo desarrollador ni clave (las Bravia
+            // nuevas son Google TV). ADB queda para Fire TV y Android TV viejas.
+            GoogleTvDetector(),
             AndroidTvDetector(),
             SonyDetector(NetworkClients.http),
         ),
@@ -58,9 +63,11 @@ class AppContainer(context: Context) {
             http = NetworkClients.http,
             webSocketClient = NetworkClients.webSocket,
             adbKeyDir = appContext.filesDir,
+            googleTvIdentityFile = File(appContext.filesDir, GOOGLE_TV_IDENTITY_FILE),
         ),
         credentials = credentials,
         lastDevice = lastDevice,
+        pairedDevices = PrefsPairedDevices(prefs),
         session = session,
     )
 
@@ -68,6 +75,7 @@ class AppContainer(context: Context) {
 
     private companion object {
         const val PREFS_NAME = "tv_prefs"
+        const val GOOGLE_TV_IDENTITY_FILE = "googletv_identity.p12"
     }
 }
 

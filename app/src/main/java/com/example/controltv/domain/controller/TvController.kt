@@ -48,6 +48,16 @@ interface ContentSearch {
     suspend fun search(query: String)
 }
 
+/**
+ * TVs que se emparejan con un código que aparece en la pantalla (Google TV).
+ * Cuando hace falta, [TvController.connect] le pide el código a la TV y lanza
+ * [TvError.PairingCodeRequired]; después se llama a [finishPairing] con lo que escribió la persona.
+ */
+interface CodePairing {
+    /** @throws TvError.WrongPairingCode si el código no coincide. */
+    suspend fun finishPairing(code: String)
+}
+
 /** Qué funciones extra tiene esta TV, según las interfaces que implementa. */
 val TvController.features: Set<TvFeature>
     get() = buildSet {

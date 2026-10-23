@@ -29,6 +29,12 @@ sealed class TvError(cause: Throwable? = null) : Exception(cause) {
     /** La persona no aceptó el mensaje de permiso en la TV a tiempo. */
     class PairingTimeout : TvError()
 
+    /** La TV está mostrando un código de emparejamiento y hay que escribirlo en el teléfono. */
+    class PairingCodeRequired : TvError()
+
+    /** El código escrito no es el que muestra la TV (se puede volver a escribir). */
+    class WrongPairingCode : TvError()
+
     /** La TV rechazó la conexión (o falta activar la depuración, en Android TV). */
     class PairingRejected(cause: Throwable? = null) : TvError(cause)
 

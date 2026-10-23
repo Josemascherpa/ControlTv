@@ -1,6 +1,8 @@
 package com.example.controltv.data.tv
 
 import com.example.controltv.data.tv.android.AndroidTvController
+import com.example.controltv.data.tv.googletv.ClientIdentity
+import com.example.controltv.data.tv.googletv.GoogleTvController
 import com.example.controltv.data.tv.lg.LgController
 import com.example.controltv.data.tv.roku.RokuController
 import com.example.controltv.data.tv.samsung.SamsungController
@@ -22,11 +24,16 @@ class DefaultTvControllerFactory(
     private val http: OkHttpClient,
     private val webSocketClient: OkHttpClient,
     private val adbKeyDir: File,
+    googleTvIdentityFile: File,
 ) : TvControllerFactory {
+
+    // Una sola identidad para todas las Google TV (así cada TV recuerda a este teléfono).
+    private val googleTvIdentity = ClientIdentity(googleTvIdentityFile)
 
     override fun create(device: TvDevice): TvController = when (device.brand) {
         TvBrand.SAMSUNG -> SamsungController(device, credentials, webSocketClient)
         TvBrand.LG -> LgController(device, credentials, webSocketClient)
+        TvBrand.GOOGLE_TV -> GoogleTvController(device, googleTvIdentity)
         TvBrand.ANDROID -> AndroidTvController(device, adbKeyDir)
         TvBrand.ROKU -> RokuController(device, http)
         TvBrand.SONY -> SonyController(device, credentials, http)

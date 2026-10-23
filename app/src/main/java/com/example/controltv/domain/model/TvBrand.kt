@@ -5,7 +5,10 @@ package com.example.controltv.domain.model
 enum class TvBrand(val label: String, val pairing: PairingMethod) {
     SAMSUNG("Samsung", PairingMethod.ACCEPT_ON_TV),
     LG("LG", PairingMethod.ACCEPT_ON_TV),
-    ANDROID("Google / Android / Fire TV", PairingMethod.ALLOW_DEBUGGING),
+    GOOGLE_TV("Google TV / Android TV", PairingMethod.CODE_ON_TV),
+
+    // Por ADB (modo desarrollador): Fire TV, y Android TV viejas que no tienen el control de Google TV.
+    ANDROID("Fire TV / Android TV", PairingMethod.ALLOW_DEBUGGING),
     ROKU("Roku", PairingMethod.ENABLE_MOBILE_CONTROL),
     SONY("Sony Bravia", PairingMethod.PRE_SHARED_KEY),
 }
@@ -17,6 +20,9 @@ enum class TvBrand(val label: String, val pairing: PairingMethod) {
 enum class PairingMethod {
     /** La TV muestra un mensaje "¿Permitir?" y hay que aceptarlo con el control (Samsung, LG). */
     ACCEPT_ON_TV,
+
+    /** La TV muestra un código y hay que escribirlo en el teléfono (Google TV). */
+    CODE_ON_TV,
 
     /** Hay que activar la depuración en la TV y aceptar "¿Permitir depuración?" (Android TV). */
     ALLOW_DEBUGGING,

@@ -19,7 +19,8 @@ sealed interface UserMessage {
 
 fun UserMessage.text(): String = when (this) {
     UserMessage.NoTvsFound ->
-        "No se encontró ninguna TV. Fijate que la TV esté prendida y conectada al mismo WiFi que el teléfono."
+        "No se encontró ninguna TV. Fijate que esté prendida y en el mismo WiFi que el teléfono. " +
+            "Si es Google TV o Fire TV, tocá «¿Tenés Google TV o Fire TV y no aparece?»."
     is UserMessage.NoTvAtIp ->
         "No se encontró ninguna TV en $ip. Revisá el número en la TV, en Ajustes > Red > Estado de la red."
     is UserMessage.Failure -> error.text(pairing)
@@ -38,10 +39,15 @@ private fun TvError.text(pairing: PairingMethod?): String = when (this) {
         PairingMethod.ALLOW_DEBUGGING -> "La TV no respondió. Cuando aparezca \"¿Permitir depuración?\", elegí Permitir."
         else -> "La TV no respondió. Cuando aparezca el mensaje en la TV, aceptalo con el control."
     }
+    is TvError.PairingCodeRequired ->
+        "Escribí el código que aparece en la pantalla de la TV."
+    is TvError.WrongPairingCode ->
+        "El código no coincide. Fijate bien en la TV y escribilo de nuevo."
     is TvError.PairingRejected -> when (pairing) {
         PairingMethod.ALLOW_DEBUGGING ->
             "No se pudo conectar. En la TV activá la depuración en Ajustes > Sistema > Opciones de " +
                 "desarrollador y aceptá el mensaje que aparece."
+        PairingMethod.CODE_ON_TV -> "La TV no aceptó el código. Volvé a conectar: va a aparecer un código nuevo."
         else -> "La TV rechazó la conexión. Volvé a intentar y elegí \"Permitir\" en la TV."
     }
     is TvError.RemoteControlDisabled ->
@@ -68,6 +74,7 @@ private fun TvError.text(pairing: PairingMethod?): String = when (this) {
 /** Lo que se muestra mientras conecta: qué tiene que hacer la persona en la TV. */
 fun PairingMethod.connectingHint(): String = when (this) {
     PairingMethod.ACCEPT_ON_TV -> "Si en la TV aparece un mensaje pidiendo permiso, aceptalo con el control."
+    PairingMethod.CODE_ON_TV -> "Si es la primera vez, en la TV va a aparecer un código para escribir en el teléfono."
     PairingMethod.ALLOW_DEBUGGING -> "En la TV aceptá \"¿Permitir depuración?\". Si no aparece, activá la " +
         "depuración en Ajustes > Sistema > Opciones de desarrollador."
     PairingMethod.ENABLE_MOBILE_CONTROL -> "Si no conecta, en la TV activá Ajustes > Sistema > " +

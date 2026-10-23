@@ -79,6 +79,11 @@ fun ControlTvApp(
                 onConnect = discoveryViewModel::connect,
                 onConnectManual = discoveryViewModel::connectManual,
                 onCancelKey = discoveryViewModel::cancelKeyRequest,
+                onSubmitCode = discoveryViewModel::submitPairingCode,
+                onCancelCode = discoveryViewModel::cancelPairingCode,
+                onShowSetupGuide = discoveryViewModel::showSetupGuide,
+                onConfirmSetupGuide = discoveryViewModel::confirmSetupGuide,
+                onDismissSetupGuide = discoveryViewModel::dismissSetupGuide,
                 modifier = Modifier.padding(innerPadding),
             )
         }

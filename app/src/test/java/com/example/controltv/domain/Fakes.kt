@@ -1,13 +1,16 @@
 package com.example.controltv.domain
 
+import com.example.controltv.domain.controller.CodePairing
 import com.example.controltv.domain.controller.ContentSearch
 import com.example.controltv.domain.controller.TvController
 import com.example.controltv.domain.controller.WebBrowser
+import com.example.controltv.domain.error.TvError
 import com.example.controltv.domain.model.RemoteKey
 import com.example.controltv.domain.model.ScrollDirection
 import com.example.controltv.domain.model.TvDevice
 import com.example.controltv.domain.repository.CredentialStore
 import com.example.controltv.domain.repository.LastDeviceStore
+import com.example.controltv.domain.repository.PairedDevices
 import com.example.controltv.domain.repository.SearchHistory
 
 // Versiones "de mentira" de las piezas del dominio: guardan en memoria lo que les pasa,
@@ -24,6 +27,12 @@ class FakeLastDevice : LastDeviceStore {
     var device: TvDevice? = null
     override fun load(): TvDevice? = device
     override fun save(device: TvDevice) { this.device = device }
+}
+
+class FakePaired : PairedDevices {
+    val ips = mutableSetOf<String>()
+    override fun isPaired(ip: String): Boolean = ip in ips
+    override fun markPaired(ip: String) { ips.add(ip) }
 }
 
 class FakeHistory : SearchHistory {
@@ -55,4 +64,17 @@ class FakeBrowserTv(device: TvDevice) : FakeTv(device), WebBrowser {
 class FakeSearchTv(device: TvDevice) : FakeTv(device), ContentSearch {
     val searches = mutableListOf<String>()
     override suspend fun search(query: String) { searches.add(query) }
+}
+
+/** TV que pide un código la primera vez (como Google TV). El código correcto es [rightCode]. */
+class FakeCodeTv(device: TvDevice, private val rightCode: String) : FakeTv(device), CodePairing {
+    private var paired = false
+    override suspend fun connect() {
+        if (!paired) throw TvError.PairingCodeRequired()
+        super.connect()
+    }
+    override suspend fun finishPairing(code: String) {
+        if (code != rightCode) throw TvError.WrongPairingCode()
+        paired = true
+    }
 }

@@ -6,6 +6,7 @@ import com.example.controltv.domain.model.TvBrand
 import com.example.controltv.domain.model.TvDevice
 import com.example.controltv.domain.repository.CredentialStore
 import com.example.controltv.domain.repository.LastDeviceStore
+import com.example.controltv.domain.repository.PairedDevices
 import com.example.controltv.domain.repository.SearchHistory
 
 // SharedPreferences es un pequeño almacenamiento clave → valor que sobrevive al cerrar la app.
@@ -43,6 +44,20 @@ class PrefsLastDeviceStore(private val prefs: SharedPreferences) : LastDeviceSto
         const val IP = "last_ip"
         const val NAME = "last_name"
         const val BRAND = "last_brand"
+    }
+}
+
+/** Guarda las IPs en un "set" (conjunto sin repetidos). */
+class PrefsPairedDevices(private val prefs: SharedPreferences) : PairedDevices {
+    override fun isPaired(ip: String): Boolean = ip in paired()
+
+    // getStringSet devuelve un set que Android no deja modificar: armamos uno nuevo con "+".
+    override fun markPaired(ip: String) = prefs.edit { putStringSet(KEY, paired() + ip) }
+
+    private fun paired(): Set<String> = prefs.getStringSet(KEY, null).orEmpty()
+
+    private companion object {
+        const val KEY = "paired_ips"
     }
 }
 

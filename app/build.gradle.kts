@@ -1,6 +1,7 @@
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.protobuf)
 }
 
 android {
@@ -35,6 +36,28 @@ android {
     buildFeatures {
         compose = true
     }
+    packaging {
+        resources {
+            // Las partes de BouncyCastle traen los mismos archivos de licencia; no hacen falta en la app.
+            excludes += setOf("META-INF/LICENSE.md", "META-INF/NOTICE.md", "META-INF/versions/9/OSGI-INF/MANIFEST.MF")
+        }
+    }
+}
+
+// Genera las clases de Kotlin a partir de los archivos .proto de src/main/proto
+// (los mensajes que usan las Google TV). "lite" = la versión liviana, pensada para Android.
+protobuf {
+    protoc {
+        artifact = "com.google.protobuf:protoc:${libs.versions.protobuf.get()}"
+    }
+    generateProtoTasks {
+        all().forEach { task ->
+            task.builtins {
+                create("java") { option("lite") }
+                create("kotlin") { option("lite") }
+            }
+        }
+    }
 }
 
 dependencies {
@@ -50,6 +73,8 @@ dependencies {
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.okhttp)
     implementation(libs.dadb)
+    implementation(libs.protobuf.kotlin.lite)
+    implementation(libs.bouncycastle.pkix)
     testImplementation(libs.junit)
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)

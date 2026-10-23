@@ -18,7 +18,7 @@ object NetworkClients {
     // así que Android los rechazaría. Como sólo hablamos con dispositivos de la red local,
     // aceptamos cualquier certificado. NO usar estos clientes para internet.
     @SuppressLint("CustomX509TrustManager", "TrustAllX509TrustManager")
-    private val trustAll = object : X509TrustManager {
+    internal val trustAll: X509TrustManager = object : X509TrustManager {
         override fun checkClientTrusted(chain: Array<X509Certificate>, authType: String) {}
         override fun checkServerTrusted(chain: Array<X509Certificate>, authType: String) {}
         override fun getAcceptedIssuers(): Array<X509Certificate> = arrayOf()
