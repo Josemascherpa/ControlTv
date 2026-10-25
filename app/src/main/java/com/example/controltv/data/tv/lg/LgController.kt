@@ -142,11 +142,13 @@ class LgController(
 
     // El pointer socket también entiende la "ruedita" del Magic Remote.
     override suspend fun scroll(direction: ScrollDirection) {
-        val dy = when (direction) {
-            ScrollDirection.UP -> -SCROLL_STEP
-            ScrollDirection.DOWN -> SCROLL_STEP
+        val (dx, dy) = when (direction) {
+            ScrollDirection.UP -> 0 to -SCROLL_STEP
+            ScrollDirection.DOWN -> 0 to SCROLL_STEP
+            ScrollDirection.LEFT -> -SCROLL_STEP to 0
+            ScrollDirection.RIGHT -> SCROLL_STEP to 0
         }
-        pointer.sendOrThrow("type:scroll\ndx:0\ndy:$dy\n\n")
+        pointer.sendOrThrow("type:scroll\ndx:$dx\ndy:$dy\n\n")
     }
 
     // El pointer socket es el del Magic Remote: "move" mueve el cursor y "click" hace click.

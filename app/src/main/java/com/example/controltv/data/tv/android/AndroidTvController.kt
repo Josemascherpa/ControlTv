@@ -84,6 +84,8 @@ class AndroidTvController(
         val key = when (direction) {
             ScrollDirection.UP -> "KEYCODE_PAGE_UP"
             ScrollDirection.DOWN -> "KEYCODE_PAGE_DOWN"
+            ScrollDirection.LEFT -> "KEYCODE_DPAD_LEFT"
+            ScrollDirection.RIGHT -> "KEYCODE_DPAD_RIGHT"
         }
         shell("input keyevent $key")
     }

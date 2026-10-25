@@ -202,6 +202,8 @@ class GoogleTvController internal constructor(
         when (direction) {
             ScrollDirection.UP -> RemoteKeyCode.KEYCODE_PAGE_UP
             ScrollDirection.DOWN -> RemoteKeyCode.KEYCODE_PAGE_DOWN
+            ScrollDirection.LEFT -> RemoteKeyCode.KEYCODE_DPAD_LEFT
+            ScrollDirection.RIGHT -> RemoteKeyCode.KEYCODE_DPAD_RIGHT
         },
     )
 

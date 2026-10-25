@@ -14,4 +14,6 @@ enum class RemoteKey {
 enum class ScrollDirection(val arrow: RemoteKey) {
     UP(RemoteKey.UP),
     DOWN(RemoteKey.DOWN),
+    LEFT(RemoteKey.LEFT),
+    RIGHT(RemoteKey.RIGHT),
 }

@@ -146,7 +146,8 @@ fun TouchPad(
                     val firstDown = awaitFirstDown()
                     var slideDistance = 0f
                     var usedTwoFingers = false
-                    var scrollPending = 0f
+                    var scrollPendingX = 0f
+                    var scrollPendingY = 0f
                     var lastTime = firstDown.uptimeMillis
                     val scrollStep = SCROLL_STEP_DP.dp.toPx()
 
@@ -159,11 +160,24 @@ fun TouchPad(
                             usedTwoFingers = true
                             // Promedio de lo que se movieron los dedos. Como en una notebook:
                             // dedos hacia arriba = la página baja.
-                            scrollPending += fingers.map { it.positionChange().y }.average().toFloat()
-                            while (kotlin.math.abs(scrollPending) >= scrollStep) {
-                                val direction = if (scrollPending < 0) ScrollDirection.DOWN else ScrollDirection.UP
-                                currentOnScroll?.invoke(direction)
-                                scrollPending -= if (scrollPending < 0) -scrollStep else scrollStep
+                            scrollPendingX += fingers.map { it.positionChange().x }.average().toFloat()
+                            scrollPendingY += fingers.map { it.positionChange().y }.average().toFloat()
+                            // Se mueve sólo en el eje que más se deslizó: horizontal o vertical.
+                            if (kotlin.math.abs(scrollPendingX) > kotlin.math.abs(scrollPendingY)) {
+                                while (kotlin.math.abs(scrollPendingX) >= scrollStep) {
+                                    // Dedos hacia la izquierda = la página va hacia la derecha.
+                                    val direction = if (scrollPendingX < 0) ScrollDirection.RIGHT else ScrollDirection.LEFT
+                                    currentOnScroll?.invoke(direction)
+                                    scrollPendingX -= if (scrollPendingX < 0) -scrollStep else scrollStep
+                                }
+                                scrollPendingY = 0f
+                            } else {
+                                while (kotlin.math.abs(scrollPendingY) >= scrollStep) {
+                                    val direction = if (scrollPendingY < 0) ScrollDirection.DOWN else ScrollDirection.UP
+                                    currentOnScroll?.invoke(direction)
+                                    scrollPendingY -= if (scrollPendingY < 0) -scrollStep else scrollStep
+                                }
+                                scrollPendingX = 0f
                             }
                         } else if (fingers.size == 1 && !usedTwoFingers) {
                             val drag = fingers.first().positionChange()
@@ -194,7 +208,7 @@ fun TouchPad(
         )
         Text(
             if (onScroll != null) {
-                "Deslizá un dedo para mover la flecha\nTocá para hacer click\nDeslizá dos dedos para subir o bajar la página"
+                "Deslizá un dedo para mover la flecha\nTocá para hacer click\nDeslizá dos dedos para mover la página"
             } else {
                 "Deslizá un dedo para mover la flecha\nTocá para hacer click"
             },
