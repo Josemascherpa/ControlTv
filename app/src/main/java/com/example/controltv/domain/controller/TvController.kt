@@ -48,6 +48,15 @@ interface ContentSearch {
     suspend fun search(query: String)
 }
 
+/** TVs que tienen un cursor en pantalla que se puede mover y tocar, como un mouse (ej. LG y Samsung). */
+interface PointerInput {
+    /** Mueve el cursor. [dx] y [dy] son cuánto se corrió el dedo (positivo = derecha / abajo). */
+    suspend fun movePointer(dx: Int, dy: Int)
+
+    /** Hace click donde está el cursor. */
+    suspend fun click()
+}
+
 /**
  * TVs que se emparejan con un código que aparece en la pantalla (Google TV).
  * Cuando hace falta, [TvController.connect] le pide el código a la TV y lanza
@@ -64,6 +73,7 @@ val TvController.features: Set<TvFeature>
         if (this@features is TextInput) add(TvFeature.TEXT)
         if (this@features is WebBrowser) add(TvFeature.BROWSER)
         if (this@features is ContentSearch) add(TvFeature.CONTENT_SEARCH)
+        if (this@features is PointerInput) add(TvFeature.POINTER)
     }
 
 // "as?" intenta convertir al tipo pedido y da null si no se puede. Con "?:" lanzamos
@@ -73,6 +83,9 @@ fun TvController.asTextInput(): TextInput =
 
 fun TvController.asWebBrowser(): WebBrowser =
     this as? WebBrowser ?: throw TvError.FeatureNotSupported(TvFeature.BROWSER)
+
+fun TvController.asPointerInput(): PointerInput =
+    this as? PointerInput ?: throw TvError.FeatureNotSupported(TvFeature.POINTER)
 
 /**
  * Forma "por defecto" de mover una página: con las flechas, que en casi todos los navegadores

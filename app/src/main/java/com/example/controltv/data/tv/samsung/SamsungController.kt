@@ -3,6 +3,7 @@ package com.example.controltv.data.tv.samsung
 import android.util.Base64
 import com.example.controltv.data.network.openWebSocket
 import com.example.controltv.data.network.sendOrThrow
+import com.example.controltv.domain.controller.PointerInput
 import com.example.controltv.domain.controller.TextInput
 import com.example.controltv.domain.controller.TvController
 import com.example.controltv.domain.controller.WebBrowser
@@ -28,7 +29,7 @@ class SamsungController(
     override val device: TvDevice,
     private val credentials: CredentialStore,
     private val client: OkHttpClient,
-) : TvController, TextInput, WebBrowser {
+) : TvController, TextInput, WebBrowser, PointerInput {
 
     private var socket: WebSocket? = null
 
@@ -98,6 +99,23 @@ class SamsungController(
     }
 
     override suspend fun scroll(direction: ScrollDirection) = scrollWithArrows(direction)
+
+    // Samsung tiene un "mouse" propio (TypeOfRemote = ProcessMouseDevice) que usa posiciones.
+    override suspend fun movePointer(dx: Int, dy: Int) = sendMouse("Move", dx, dy)
+
+    override suspend fun click() = sendMouse("LeftClick", 0, 0)
+
+    private fun sendMouse(cmd: String, x: Int, y: Int) {
+        val position = JSONObject()
+            .put("x", x)
+            .put("y", y)
+            .put("Time", System.currentTimeMillis().toString())
+        val params = JSONObject()
+            .put("Cmd", cmd)
+            .put("Position", position)
+            .put("TypeOfRemote", "ProcessMouseDevice")
+        socket.sendOrThrow(JSONObject().put("method", "ms.remote.control").put("params", params).toString())
+    }
 
     private fun sendRemote(cmd: String, data: String, type: String) {
         val params = JSONObject()

@@ -1,6 +1,7 @@
 package com.example.controltv
 
 import android.app.Application
+import com.example.controltv.data.background.KeepAliveController
 import com.example.controltv.di.AppContainer
 
 /**
@@ -17,5 +18,9 @@ class ControlTvApplication : Application() {
     override fun onCreate() {
         super.onCreate()
         container = AppContainer(this)
+        // Mantiene la conexión viva en segundo plano mientras haya una TV conectada.
+        keepAlive = KeepAliveController(this, container.session)
     }
+
+    private lateinit var keepAlive: KeepAliveController
 }

@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.example.controltv.di.appContainer
+import com.example.controltv.domain.controller.asPointerInput
 import com.example.controltv.domain.controller.asTextInput
 import com.example.controltv.domain.controller.asWebBrowser
 import com.example.controltv.domain.controller.features
@@ -46,6 +47,8 @@ interface RemoteActions {
     fun openWebsite(input: String)
     fun openFavorite(url: String)
     fun scroll(direction: ScrollDirection)
+    fun movePointer(dx: Int, dy: Int)
+    fun click()
     fun disconnect()
 }
 
@@ -93,6 +96,11 @@ class RemoteViewModel(
 
     override fun scroll(direction: ScrollDirection) =
         launchOnTv { session.current().asWebBrowser().scroll(direction) }
+
+    override fun movePointer(dx: Int, dy: Int) =
+        launchOnTv { session.current().asPointerInput().movePointer(dx, dy) }
+
+    override fun click() = launchOnTv { session.current().asPointerInput().click() }
 
     override fun disconnect() = session.end()
 

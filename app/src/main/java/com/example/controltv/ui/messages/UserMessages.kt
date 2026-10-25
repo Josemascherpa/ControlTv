@@ -65,6 +65,7 @@ private fun TvError.text(pairing: PairingMethod?): String = when (this) {
     is TvError.FeatureNotSupported -> when (feature) {
         TvFeature.TEXT -> "Esta TV no permite escribir desde el teléfono."
         TvFeature.BROWSER -> "Esta TV no puede abrir páginas de internet."
+        TvFeature.POINTER -> "Esta TV no tiene cursor para mover con el dedo. Usá las flechas."
         TvFeature.CONTENT_SEARCH -> "Esta TV no permite buscar desde el teléfono."
     }
     is TvError.DeviceError ->

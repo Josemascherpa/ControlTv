@@ -10,4 +10,7 @@ enum class TvFeature {
 
     /** Buscar películas y series en las aplicaciones de la TV (cuando no hay navegador, ej. Roku). */
     CONTENT_SEARCH,
+
+    /** Mover un cursor (como un mouse) por la pantalla y hacer click. */
+    POINTER,
 }

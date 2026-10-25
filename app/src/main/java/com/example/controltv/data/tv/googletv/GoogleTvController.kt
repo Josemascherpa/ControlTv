@@ -157,7 +157,15 @@ class GoogleTvController internal constructor(
             // La TV pregunta cada tanto si seguimos ahí; si no contestamos, corta.
             message.hasRemotePingRequest() ->
                 opened.send(remoteMessage { remotePingResponse = remotePingResponse { val1 = message.remotePingRequest.val1 } })
-            // Avisa en qué campo de texto está el foco: hace falta para escribir.
+            // La TV avisa en qué campo de texto está el foco (ej. el buscador de YouTube) y con qué
+            // números hay que identificarlo: sin ellos la TV ignora lo que escribimos. Esos números
+            // llegan en estos tres mensajes, así que nos quedamos con los últimos que mandó.
+            message.hasRemoteImeKeyInject() -> {
+                imeCounter = message.remoteImeKeyInject.appInfo.counter
+                imeFieldCounter = message.remoteImeKeyInject.textFieldStatus.counterField
+            }
+            message.hasRemoteImeShowRequest() ->
+                imeFieldCounter = message.remoteImeShowRequest.remoteTextFieldStatus.counterField
             message.hasRemoteImeBatchEdit() -> {
                 imeCounter = message.remoteImeBatchEdit.imeCounter
                 imeFieldCounter = message.remoteImeBatchEdit.fieldCounter

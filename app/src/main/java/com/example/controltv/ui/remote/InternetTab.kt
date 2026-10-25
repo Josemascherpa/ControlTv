@@ -14,6 +14,17 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.History
+import androidx.compose.material.icons.rounded.KeyboardArrowDown
+import androidx.compose.material.icons.rounded.KeyboardArrowUp
+import androidx.compose.material.icons.rounded.Language
+import androidx.compose.material.icons.rounded.Mic
+import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material.icons.rounded.SmartDisplay
+import androidx.compose.material3.Icon
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.HorizontalDivider
@@ -30,11 +41,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.example.controltv.domain.model.RemoteKey
 import com.example.controltv.domain.model.ScrollDirection
 import com.example.controltv.domain.model.TvFeature
@@ -72,7 +80,7 @@ fun InternetTab(
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         SectionTitle(if (canBrowse) "¿Qué querés buscar?" else "Buscar películas y series")
         Hint(
-            if (canBrowse) "Escribí o tocá el micrófono 🎤 y hablá."
+            if (canBrowse) "Escribí o tocá el micrófono y hablá."
             else "Esta TV no tiene navegador de internet, pero podés buscar en sus aplicaciones.",
         )
         SearchField(query, onQueryChange = { query = it }, onGo = {
@@ -81,17 +89,17 @@ fun InternetTab(
 
         if (canBrowse) {
             if (showOpenPage) {
-                BigButton("🌐  Abrir esta página", enabled = hasQuery) { actions.openWebsite(query) }
+                BigButton("Abrir esta página", icon = Icons.Rounded.Language, enabled = hasQuery) { actions.openWebsite(query) }
             }
-            BigButton("🔍  Buscar en Google", enabled = hasQuery, tonal = showOpenPage) {
+            BigButton("Buscar en Google", icon = Icons.Rounded.Search, enabled = hasQuery, tonal = showOpenPage) {
                 actions.search(query, SearchEngine.GOOGLE)
             }
-            BigButton("▶️  Buscar en YouTube", enabled = hasQuery, tonal = true) {
+            BigButton("Buscar en YouTube", icon = Icons.Rounded.SmartDisplay, enabled = hasQuery, tonal = true) {
                 actions.search(query, SearchEngine.YOUTUBE)
             }
         } else {
             // Sin navegador, el caso de uso usa el buscador propio de la TV (el motor da igual).
-            BigButton("🔍  Buscar en la TV", enabled = hasQuery) { actions.search(query, SearchEngine.GOOGLE) }
+            BigButton("Buscar en la TV", icon = Icons.Rounded.Search, enabled = hasQuery) { actions.search(query, SearchEngine.GOOGLE) }
         }
     }
 
@@ -136,7 +144,7 @@ private fun SearchField(query: String, onQueryChange: (String) -> Unit, onGo: ()
         textStyle = MaterialTheme.typography.bodyLarge,
         trailingIcon = {
             IconButton(onClick = startVoice, modifier = Modifier.size(56.dp)) {
-                Text("🎤", fontSize = 26.sp, modifier = Modifier.semantics { contentDescription = "Buscar hablando" })
+                Icon(Icons.Rounded.Mic, contentDescription = "Buscar hablando", tint = MaterialTheme.colorScheme.primary)
             }
         },
         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
@@ -152,11 +160,13 @@ private fun RecentSearches(searches: List<String>, onPick: (String) -> Unit) {
         Hint("Tocá una para volver a escribirla.")
         searches.forEach { recent ->
             OutlinedButton(onClick = { onPick(recent) }, modifier = Modifier.fillMaxWidth().height(52.dp)) {
+                Icon(Icons.Rounded.History, contentDescription = null, modifier = Modifier.size(20.dp))
+                Spacer(Modifier.width(10.dp))
                 Text(
-                    "🕘  $recent",
+                    recent,
                     style = MaterialTheme.typography.bodyLarge,
                     maxLines = 1,
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.weight(1f),
                 )
             }
         }
@@ -186,12 +196,12 @@ private fun PageNavigation(press: (RemoteKey) -> Unit, onScroll: (ScrollDirectio
         Hint("Usá las flechas para elegir un link y OK para abrirlo.", Modifier.fillMaxWidth())
         Spacer(Modifier.height(12.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            BigButton("⬆  Subir", Modifier.weight(1f), tonal = true) { onScroll(ScrollDirection.UP) }
-            BigButton("⬇  Bajar", Modifier.weight(1f), tonal = true) { onScroll(ScrollDirection.DOWN) }
+            BigButton("Subir", Modifier.weight(1f), icon = Icons.Rounded.KeyboardArrowUp, tonal = true) { onScroll(ScrollDirection.UP) }
+            BigButton("Bajar", Modifier.weight(1f), icon = Icons.Rounded.KeyboardArrowDown, tonal = true) { onScroll(ScrollDirection.DOWN) }
         }
         Spacer(Modifier.height(16.dp))
         DPad(press)
         Spacer(Modifier.height(16.dp))
-        BigButton("↩  Volver a la página anterior", tonal = true) { press(RemoteKey.BACK) }
+        BigButton("Volver a la página anterior", icon = Icons.AutoMirrored.Rounded.ArrowBack, tonal = true) { press(RemoteKey.BACK) }
     }
 }

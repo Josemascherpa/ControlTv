@@ -2,6 +2,7 @@ package com.example.controltv.data.tv.lg
 
 import com.example.controltv.data.network.openWebSocket
 import com.example.controltv.data.network.sendOrThrow
+import com.example.controltv.domain.controller.PointerInput
 import com.example.controltv.domain.controller.TextInput
 import com.example.controltv.domain.controller.TvController
 import com.example.controltv.domain.controller.WebBrowser
@@ -31,7 +32,7 @@ class LgController(
     override val device: TvDevice,
     private val credentials: CredentialStore,
     private val client: OkHttpClient,
-) : TvController, TextInput, WebBrowser {
+) : TvController, TextInput, WebBrowser, PointerInput {
 
     private var socket: WebSocket? = null
     private var pointer: WebSocket? = null
@@ -146,6 +147,15 @@ class LgController(
             ScrollDirection.DOWN -> SCROLL_STEP
         }
         pointer.sendOrThrow("type:scroll\ndx:0\ndy:$dy\n\n")
+    }
+
+    // El pointer socket es el del Magic Remote: "move" mueve el cursor y "click" hace click.
+    override suspend fun movePointer(dx: Int, dy: Int) {
+        pointer.sendOrThrow("type:move\ndx:$dx\ndy:$dy\ndown:0\n\n")
+    }
+
+    override suspend fun click() {
+        pointer.sendOrThrow("type:click\n\n")
     }
 
     private fun buttonName(key: RemoteKey): String = when (key) {
