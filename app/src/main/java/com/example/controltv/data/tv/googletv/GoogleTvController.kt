@@ -1,6 +1,7 @@
 package com.example.controltv.data.tv.googletv
 
 import com.example.controltv.data.network.ioCall
+import com.example.controltv.data.network.logNetworkError
 import com.example.controltv.data.tv.googletv.proto.RemoteDirection
 import com.example.controltv.data.tv.googletv.proto.RemoteKeyCode
 import com.example.controltv.data.tv.googletv.proto.RemoteMessage
@@ -31,7 +32,6 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import java.io.IOException
-import javax.net.ssl.SSLException
 
 /**
  * Google TV / Android TV con el mismo protocolo que usa la app oficial "Google TV" del teléfono
@@ -59,13 +59,21 @@ class GoogleTvController internal constructor(
     @Volatile private var imeCounter = 0
     @Volatile private var imeFieldCounter = 0
 
+    /**
+     * Cuando la TV no conoce nuestro certificado, cada modelo lo dice distinto: algunas mandan un
+     * error de seguridad (SSLException), otras (ej. BGH) directamente cortan la conexión, durante el
+     * saludo inicial o apenas empezamos a leer. Por eso cualquier corte antes de "remote_start" se
+     * toma como "hay que emparejar". Si la TV de verdad no está, el emparejamiento tampoco conecta
+     * y se avisa con [TvError.Unreachable], igual que antes.
+     */
     override suspend fun connect() {
         disconnect()
         val opened = ioCall(onError = { TvError.Unreachable(it) }) {
             try {
                 TlsChannel.open(device.ip, REMOTE_PORT, identity, READ_TIMEOUT_MS)
-            } catch (e: SSLException) {
-                null // la TV no conoce nuestro certificado
+            } catch (e: IOException) {
+                logNetworkError(e)
+                null // la TV no nos aceptó (o no está): probamos emparejar
             }
         } ?: return startPairing()
 
@@ -74,13 +82,11 @@ class GoogleTvController internal constructor(
         startReading(opened, ready)
         try {
             withTimeoutOrNull(READY_TIMEOUT_MS) { ready.await() } ?: throw TvError.NoResponse()
-        } catch (e: SSLException) {
-            // Algunas TVs aceptan la conexión y recién al leer avisan que no nos conocen.
+        } catch (e: IOException) {
+            // Aceptó la conexión y la cortó al leer (SSLException también es un IOException).
+            logNetworkError(e)
             disconnect()
             startPairing()
-        } catch (e: IOException) {
-            disconnect()
-            throw TvError.Unreachable(e)
         }
     }
 

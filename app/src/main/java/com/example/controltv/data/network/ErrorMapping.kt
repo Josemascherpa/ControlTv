@@ -1,5 +1,6 @@
 package com.example.controltv.data.network
 
+import android.util.Log
 import com.example.controltv.domain.error.TvError
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -23,6 +24,17 @@ internal suspend fun <T> ioCall(
     } catch (e: TvError) {
         throw e
     } catch (e: Exception) {
+        logNetworkError(e)
         throw onError(e)
     }
 }
+
+/**
+ * Anota el error técnico real en el registro del sistema ("logcat"). La persona sólo ve el mensaje
+ * simple, pero así quien programa puede ver qué pasó con `adb logcat -s ControlTv`.
+ */
+internal fun logNetworkError(e: Exception) {
+    Log.w(LOG_TAG, "Error de red", e)
+}
+
+private const val LOG_TAG = "ControlTv"
