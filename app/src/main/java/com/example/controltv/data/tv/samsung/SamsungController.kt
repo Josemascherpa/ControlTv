@@ -1,9 +1,12 @@
 package com.example.controltv.data.tv.samsung
 
 import android.util.Base64
+import com.example.controltv.data.network.call
 import com.example.controltv.data.network.openWebSocket
 import com.example.controltv.data.network.sendOrThrow
+import com.example.controltv.domain.controller.HardwareAddress
 import com.example.controltv.domain.controller.PointerInput
+import com.example.controltv.domain.controller.PowerOn
 import com.example.controltv.domain.controller.TextInput
 import com.example.controltv.domain.controller.TvController
 import com.example.controltv.domain.controller.WebBrowser
@@ -16,6 +19,7 @@ import com.example.controltv.domain.repository.CredentialStore
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.withTimeoutOrNull
 import okhttp3.OkHttpClient
+import okhttp3.Request
 import okhttp3.WebSocket
 import org.json.JSONException
 import org.json.JSONObject
@@ -24,12 +28,16 @@ import org.json.JSONObject
  * Samsung (Tizen, modelos 2016+): se abre un WebSocket a
  * wss://IP:8002/api/v2/channels/samsung.remote.control y se mandan mensajes JSON.
  * La primera vez la TV muestra "¿Permitir?" y, al aceptar, devuelve un token que guardamos.
+ *
+ * Además, http://IP:8001/api/v2/ contesta sin emparejar con datos de la TV: su MAC ("wifiMac")
+ * y, en los modelos nuevos, si está en espera ("PowerState").
  */
 class SamsungController(
     override val device: TvDevice,
     private val credentials: CredentialStore,
     private val client: OkHttpClient,
-) : TvController, TextInput, WebBrowser, PointerInput {
+    private val http: OkHttpClient,
+) : TvController, TextInput, WebBrowser, PointerInput, HardwareAddress, PowerOn {
 
     private var socket: WebSocket? = null
 
@@ -126,6 +134,23 @@ class SamsungController(
         socket.sendOrThrow(JSONObject().put("method", "ms.remote.control").put("params", params).toString())
     }
 
+    override suspend fun macAddresses(): List<String> =
+        listOfNotNull(deviceInfo().optString("wifiMac").takeIf { it.isNotEmpty() })
+
+    // Algunas Samsung en espera siguen atendiendo la red: ahí el botón de encendido las prende.
+    override suspend fun turnOn() {
+        if (deviceInfo().optString("PowerState") == "standby") sendKey(RemoteKey.POWER)
+    }
+
+    private suspend fun deviceInfo(): JSONObject {
+        val response = http.call(Request.Builder().url("http://${device.ip}:$INFO_PORT/api/v2/").build())
+        return try {
+            JSONObject(response.body).getJSONObject("device")
+        } catch (e: JSONException) {
+            throw TvError.DeviceError(detail = "datos de la TV inválidos")
+        }
+    }
+
     // "when" es como un switch: traduce nuestro botón al código de Samsung.
     private fun keyCode(key: RemoteKey): String = when (key) {
         RemoteKey.POWER -> "KEY_POWER"
@@ -153,5 +178,6 @@ class SamsungController(
     private companion object {
         const val APP_NAME = "ControlTv"
         const val PAIRING_TIMEOUT_MS = 60_000L
+        const val INFO_PORT = 8001
     }
 }

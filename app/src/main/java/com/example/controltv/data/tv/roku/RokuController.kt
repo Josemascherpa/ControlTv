@@ -1,9 +1,12 @@
 package com.example.controltv.data.tv.roku
 
 import android.net.Uri
+import android.util.Xml
 import com.example.controltv.data.network.HttpResponse
 import com.example.controltv.data.network.call
 import com.example.controltv.domain.controller.ContentSearch
+import com.example.controltv.domain.controller.HardwareAddress
+import com.example.controltv.domain.controller.PowerOn
 import com.example.controltv.domain.controller.TextInput
 import com.example.controltv.domain.controller.TvController
 import com.example.controltv.domain.error.TvError
@@ -12,6 +15,10 @@ import com.example.controltv.domain.model.TvDevice
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
+import org.xmlpull.v1.XmlPullParser
+import org.xmlpull.v1.XmlPullParserException
+import java.io.IOException
+import java.io.StringReader
 
 /**
  * Roku (Roku TV de TCL, Hisense, onn, Philco, etc. y los Roku Express/Stick):
@@ -23,11 +30,14 @@ import okhttp3.RequestBody.Companion.toRequestBody
  *
  * Requisito (Roku OS 14.1+): en la TV, Ajustes > Sistema > Configuración avanzada >
  * Control por apps móviles > Acceso a la red: "Habilitado".
+ *
+ * Para prenderla desde el teléfono: Ajustes > Sistema > Energía > "Inicio rápido de TV" activado.
+ * Así en espera sigue atendiendo la red y entiende "PowerOn".
  */
 class RokuController(
     override val device: TvDevice,
     private val http: OkHttpClient,
-) : TvController, TextInput, ContentSearch {
+) : TvController, TextInput, ContentSearch, HardwareAddress, PowerOn {
 
     private val baseUrl = "http://${device.ip}:$PORT"
 
@@ -55,6 +65,31 @@ class RokuController(
 
     // Abre el buscador del Roku con el texto (busca en todas las apps instaladas).
     override suspend fun search(query: String) = post("/search/browse?keyword=${Uri.encode(query)}&launch=true")
+
+    override suspend fun turnOn() = post("/keypress/PowerOn")
+
+    override suspend fun macAddresses(): List<String> {
+        val info = deviceInfo(get(DEVICE_INFO).body)
+        return listOfNotNull(info["wifi-mac"], info["ethernet-mac"]).filter { it.isNotEmpty() }
+    }
+
+    // device-info es un XML con un dato por etiqueta (<wifi-mac>…</wifi-mac>). Lo leemos con el
+    // lector de XML que trae Android y lo devolvemos como mapa etiqueta → texto.
+    private fun deviceInfo(xml: String): Map<String, String> = try {
+        val parser = Xml.newPullParser().apply { setInput(StringReader(xml)) }
+        buildMap {
+            while (parser.next() != XmlPullParser.END_DOCUMENT) {
+                if (parser.eventType == XmlPullParser.START_TAG) {
+                    val tag = parser.name
+                    if (parser.next() == XmlPullParser.TEXT) put(tag, parser.text.trim())
+                }
+            }
+        }
+    } catch (e: XmlPullParserException) {
+        throw TvError.DeviceError(detail = "datos de la TV inválidos")
+    } catch (e: IOException) {
+        throw TvError.DeviceError(detail = "datos de la TV inválidos")
+    }
 
     private fun keyName(key: RemoteKey): String = when (key) {
         RemoteKey.POWER -> "PowerOff"

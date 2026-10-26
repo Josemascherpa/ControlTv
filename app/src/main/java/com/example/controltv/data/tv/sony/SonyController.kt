@@ -2,6 +2,8 @@ package com.example.controltv.data.tv.sony
 
 import com.example.controltv.data.network.HttpResponse
 import com.example.controltv.data.network.call
+import com.example.controltv.domain.controller.HardwareAddress
+import com.example.controltv.domain.controller.PowerOn
 import com.example.controltv.domain.controller.TextInput
 import com.example.controltv.domain.controller.TvController
 import com.example.controltv.domain.controller.WebBrowser
@@ -27,12 +29,14 @@ import org.json.JSONObject
  * Se autentica con una "clave precompartida" (PSK) que la persona elige en la TV:
  *   Ajustes > Red > Configuración de red doméstica > Control IP > Autenticación: "Normal y clave precompartida".
  * La guardamos en [CredentialStore] como la credencial de esta IP.
+ *
+ * Para prenderla desde el teléfono: Ajustes > Red > Control remoto > "Encendido remoto" activado.
  */
 class SonyController(
     override val device: TvDevice,
     private val credentials: CredentialStore,
     private val http: OkHttpClient,
-) : TvController, TextInput, WebBrowser {
+) : TvController, TextInput, WebBrowser, HardwareAddress, PowerOn {
 
     private val baseUrl = "http://${device.ip}/sony"
 
@@ -97,6 +101,20 @@ class SonyController(
     }
 
     override suspend fun scroll(direction: ScrollDirection) = scrollWithArrows(direction)
+
+    // "setPowerStatus" con true prende la pantalla (y si ya estaba prendida no hace nada).
+    override suspend fun turnOn() {
+        rpc(SERVICE_SYSTEM, "setPowerStatus", JSONObject().put("status", true))
+    }
+
+    // Con "netif" vacío la TV informa todas sus placas de red (WiFi y cable), cada una con su MAC.
+    override suspend fun macAddresses(): List<String> {
+        val networks = rpc(SERVICE_SYSTEM, "getNetworkSettings", JSONObject().put("netif", "")).optJSONArray(0)
+            ?: return emptyList()
+        return (0 until networks.length()).mapNotNull { i ->
+            networks.optJSONObject(i)?.optString("hwAddr")?.takeIf { it.isNotEmpty() }
+        }
+    }
 
     /** Llama a un método JSON de la TV y devuelve su "result". */
     private suspend fun rpc(

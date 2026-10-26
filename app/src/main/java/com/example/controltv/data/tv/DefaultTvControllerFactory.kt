@@ -31,9 +31,9 @@ class DefaultTvControllerFactory(
     private val googleTvIdentity = ClientIdentity(googleTvIdentityFile)
 
     override fun create(device: TvDevice): TvController = when (device.brand) {
-        TvBrand.SAMSUNG -> SamsungController(device, credentials, webSocketClient)
+        TvBrand.SAMSUNG -> SamsungController(device, credentials, webSocketClient, http)
         TvBrand.LG -> LgController(device, credentials, webSocketClient)
-        TvBrand.GOOGLE_TV -> GoogleTvController(device, googleTvIdentity)
+        TvBrand.GOOGLE_TV -> GoogleTvController(device, googleTvIdentity, http)
         TvBrand.ANDROID -> AndroidTvController(device, adbKeyDir)
         TvBrand.ROKU -> RokuController(device, http)
         TvBrand.SONY -> SonyController(device, credentials, http)

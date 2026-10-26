@@ -1,20 +1,22 @@
 package com.example.controltv.domain.usecase
 
 import com.example.controltv.domain.controller.CodePairing
+import com.example.controltv.domain.controller.HardwareAddress
 import com.example.controltv.domain.controller.TvController
 import com.example.controltv.domain.controller.TvControllerFactory
 import com.example.controltv.domain.error.TvError
+import com.example.controltv.domain.model.KnownTv
 import com.example.controltv.domain.model.PairingMethod
 import com.example.controltv.domain.model.TvDevice
 import com.example.controltv.domain.repository.CredentialStore
-import com.example.controltv.domain.repository.LastDeviceStore
+import com.example.controltv.domain.repository.KnownTvs
 import com.example.controltv.domain.repository.PairedDevices
 import com.example.controltv.domain.session.TvSession
 
 /**
  * Un "caso de uso" es una acción concreta de la app, con su lógica en un solo lugar.
  * Este conecta una TV: guarda la clave si la pasaron, crea el controlador, empareja
- * y la deja como TV actual.
+ * y la deja como TV actual. Al terminar la guarda en "Mis TVs" ([KnownTvs]), con su MAC.
  *
  * Con las TVs que piden un código (Google TV) la conexión queda "en pausa" mientras la persona
  * lo escribe: [invoke] lanza [TvError.PairingCodeRequired] y después se sigue con [submitPairingCode].
@@ -25,7 +27,7 @@ import com.example.controltv.domain.session.TvSession
 class ConnectToTvUseCase(
     private val controllerFactory: TvControllerFactory,
     private val credentials: CredentialStore,
-    private val lastDevice: LastDeviceStore,
+    private val knownTvs: KnownTvs,
     private val pairedDevices: PairedDevices,
     private val session: TvSession,
 ) {
@@ -45,14 +47,18 @@ class ConnectToTvUseCase(
      * @throws TvError.MissingKey si la TV necesita clave y todavía no la tenemos.
      * @throws TvError.PairingCodeRequired si la TV muestra un código que hay que escribir.
      */
-    suspend operator fun invoke(device: TvDevice, key: String? = null) {
+    suspend operator fun invoke(found: TvDevice, key: String? = null) {
+        // Si ya la conocemos, usamos el nombre que le puso la persona (y no el genérico de la búsqueda).
+        val device = known(found)?.let { found.copy(name = it.device.name) } ?: found
         key?.trim()?.takeIf { it.isNotEmpty() }?.let { credentials.save(device.ip, it) }
         if (device.brand.pairing == PairingMethod.PRE_SHARED_KEY && credentials.get(device.ip) == null) {
             throw TvError.MissingKey()
         }
 
         cancelPairing()
-        session.end()
+        // Si es otra TV soltamos la anterior ya. Si es la misma (reconectar después de prenderla),
+        // la dejamos hasta tener la nueva conexión: así la pantalla del control no parpadea.
+        if (session.controller.value?.device != device) session.end()
         val controller = controllerFactory.create(device)
         connectOrClose(controller)
     }
@@ -96,7 +102,20 @@ class ConnectToTvUseCase(
             throw e
         }
         session.start(controller)
-        lastDevice.save(controller.device)
         pairedDevices.markPaired(controller.device.ip)
+        // La MAC no cambia: si ya la sabíamos no la volvemos a pedir.
+        val macs = known(controller.device)?.macAddresses.orEmpty().ifEmpty { macAddressesOf(controller) }
+        knownTvs.save(KnownTv(controller.device, macs))
+    }
+
+    // La TV guardada en esa IP, si es de la misma marca (si no, en esa IP ahora hay otra TV).
+    private fun known(device: TvDevice): KnownTv? =
+        knownTvs.find(device.ip)?.takeIf { it.device.brand == device.brand }
+
+    // Ahora que está prendida, le preguntamos su MAC para poder prenderla la próxima vez.
+    private suspend fun macAddressesOf(controller: TvController): List<String> = try {
+        (controller as? HardwareAddress)?.macAddresses().orEmpty()
+    } catch (e: TvError) {
+        emptyList() // no es grave: la TV ya quedó conectada; volvemos a probar en la próxima conexión
     }
 }

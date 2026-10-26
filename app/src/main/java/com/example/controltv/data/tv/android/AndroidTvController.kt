@@ -1,6 +1,8 @@
 package com.example.controltv.data.tv.android
 
 import com.example.controltv.data.network.ioCall
+import com.example.controltv.domain.controller.HardwareAddress
+import com.example.controltv.domain.controller.PowerOn
 import com.example.controltv.domain.controller.TextInput
 import com.example.controltv.domain.controller.TvController
 import com.example.controltv.domain.controller.WebBrowser
@@ -27,7 +29,7 @@ import java.io.File
 class AndroidTvController(
     override val device: TvDevice,
     private val keyDir: File,
-) : TvController, TextInput, WebBrowser {
+) : TvController, TextInput, WebBrowser, HardwareAddress, PowerOn {
 
     private var dadb: Dadb? = null
 
@@ -90,6 +92,18 @@ class AndroidTvController(
         shell("input keyevent $key")
     }
 
+    // WAKEUP prende la pantalla y, a diferencia de POWER, no la apaga si ya estaba prendida.
+    override suspend fun turnOn() {
+        shell("input keyevent KEYCODE_WAKEUP")
+    }
+
+    // Linux guarda la MAC de cada placa de red en un archivo. "2>/dev/null" oculta el error si una no existe.
+    override suspend fun macAddresses(): List<String> =
+        shell("cat /sys/class/net/wlan0/address /sys/class/net/eth0/address 2>/dev/null")
+            .lines()
+            .map { it.trim() }
+            .filter { it.matches(MAC_FORMAT) }
+
     // Envuelve en comillas simples para que la consola no interprete caracteres como & o ?.
     private fun quote(value: String): String = "'" + value.replace("'", "'\\''") + "'"
 
@@ -123,5 +137,6 @@ class AndroidTvController(
 
     companion object {
         const val ADB_PORT = 5555
+        private val MAC_FORMAT = Regex("([0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}")
     }
 }

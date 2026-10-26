@@ -31,9 +31,15 @@ class NetworkTvScanner(
             .filterNotNull()
     }
 
-    // firstNotNullOfOrNull prueba los detectores en orden y se queda con el primero que no da null.
-    override suspend fun probe(ip: String): TvDevice? =
-        detectors.firstNotNullOfOrNull { it.detect(ip.trim()) }
+    // Los detectores se prueban a la vez (cada uno espera hasta 1,5 s si la TV tarda en contestar;
+    // uno atrás del otro sería muy lento). Después, firstNotNullOfOrNull respeta el orden de la
+    // lista: gana el primero que reconoció la TV, aunque otro haya contestado antes.
+    override suspend fun probe(ip: String): TvDevice? = coroutineScope {
+        detectors
+            .map { detector -> async { detector.detect(ip.trim()) } }
+            .awaitAll()
+            .firstNotNullOfOrNull { it }
+    }
 
     private companion object {
         const val MAX_PARALLEL = 48

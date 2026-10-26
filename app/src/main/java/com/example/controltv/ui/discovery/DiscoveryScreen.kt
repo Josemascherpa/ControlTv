@@ -34,7 +34,9 @@ import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.controltv.domain.model.KnownTv
 import com.example.controltv.domain.model.TvDevice
+import com.example.controltv.ui.components.TurningOnDialog
 import com.example.controltv.ui.messages.connectingHint
 
 /**
@@ -55,6 +57,12 @@ fun DiscoveryScreen(
     onShowSetupGuide: () -> Unit,
     onConfirmSetupGuide: () -> Unit,
     onDismissSetupGuide: () -> Unit,
+    onRename: (KnownTv) -> Unit,
+    onConfirmRename: (String) -> Unit,
+    onCancelRename: () -> Unit,
+    onRemove: (KnownTv) -> Unit,
+    onConfirmRemove: () -> Unit,
+    onCancelRemove: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     // rememberSaveable guarda el texto aunque la pantalla se recree (por ejemplo al rotar).
@@ -68,13 +76,6 @@ fun DiscoveryScreen(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Spacer(Modifier.height(16.dp))
-
-        state.lastDevice?.let { last ->
-            Button(onClick = { onConnect(last, null) }, modifier = Modifier.fillMaxWidth().height(60.dp)) {
-                Text("Reconectar a ${last.name}", style = MaterialTheme.typography.titleMedium)
-            }
-            Spacer(Modifier.height(8.dp))
-        }
 
         OutlinedButton(
             onClick = onScan,
@@ -93,8 +94,25 @@ fun DiscoveryScreen(
 
         // LazyColumn es una lista que sólo dibuja los elementos visibles (como RecyclerView).
         LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            items(state.devices, key = { it.ip }) { device ->
-                DeviceCard(device, onClick = { onConnect(device, null) })
+            // Primero "Mis TVs" (aunque estén apagadas: al tocarlas se intentan prender)
+            // y después las nuevas que encontró la búsqueda.
+            if (state.knownTvs.isNotEmpty()) {
+                item { SectionTitle("Mis TVs") }
+                items(state.knownTvs, key = { "known_${it.device.ip}" }) { tv ->
+                    KnownTvCard(
+                        tv = tv,
+                        status = knownTvStatus(tv, onNetwork = state.isOnNetwork(tv), scanning = state.scanning),
+                        onClick = { onConnect(tv.device, null) },
+                        onRename = { onRename(tv) },
+                        onRemove = { onRemove(tv) },
+                    )
+                }
+            }
+            if (state.newDevices.isNotEmpty()) {
+                item { SectionTitle(if (state.knownTvs.isEmpty()) "TVs encontradas" else "Otras TVs encontradas") }
+                items(state.newDevices, key = { it.ip }) { device ->
+                    DeviceCard(device, onClick = { onConnect(device, null) })
+                }
             }
             // Con la depuración apagada estas TVs no aparecen: dejamos la ayuda siempre a mano.
             item {
@@ -128,12 +146,15 @@ fun DiscoveryScreen(
     }
 
     state.connecting?.let { ConnectingDialog(it) }
+    state.turningOn?.let { TurningOnDialog(it.name) }
     state.keyRequest?.let { device ->
         KeyDialog(device, onConfirm = { key -> onConnect(device, key) }, onDismiss = onCancelKey)
     }
     state.codeRequest?.let { request ->
         PairingCodeDialog(request, onConfirm = onSubmitCode, onDismiss = onCancelCode)
     }
+    state.renaming?.let { tv -> RenameDialog(tv, onConfirm = onConfirmRename, onDismiss = onCancelRename) }
+    state.removing?.let { tv -> RemoveDialog(tv, onConfirm = onConfirmRemove, onDismiss = onCancelRemove) }
     state.setupGuide?.let { request ->
         DebuggingSetupGuide(request, onConfirm = onConfirmSetupGuide, onDismiss = onDismissSetupGuide)
     }

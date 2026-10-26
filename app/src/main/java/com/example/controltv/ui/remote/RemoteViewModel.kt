@@ -17,6 +17,7 @@ import com.example.controltv.domain.model.TvDevice
 import com.example.controltv.domain.model.TvFeature
 import com.example.controltv.domain.repository.SearchHistory
 import com.example.controltv.domain.session.TvSession
+import com.example.controltv.domain.usecase.TurnOnTvUseCase
 import com.example.controltv.domain.usecase.WebSearchUseCase
 import com.example.controltv.domain.web.SearchEngine
 import com.example.controltv.ui.messages.UserMessage
@@ -32,6 +33,8 @@ data class RemoteUiState(
     val device: TvDevice? = null,
     val features: Set<TvFeature> = emptySet(),
     val recentSearches: List<String> = emptyList(),
+    /** Estamos prendiendo la TV (tarda unos segundos): se muestra un cartel de espera. */
+    val turningOn: Boolean = false,
     val message: UserMessage? = null,
 )
 
@@ -55,25 +58,39 @@ interface RemoteActions {
 class RemoteViewModel(
     private val session: TvSession,
     private val webSearch: WebSearchUseCase,
+    private val turnOnTv: TurnOnTvUseCase,
     private val history: SearchHistory,
 ) : ViewModel(), RemoteActions {
 
     private val recentSearches = MutableStateFlow(history.recent())
     private val message = MutableStateFlow<UserMessage?>(null)
+    private val turningOn = MutableStateFlow(false)
 
     // combine junta varios flujos en uno: cada vez que cambia cualquiera, se arma un estado nuevo.
     // stateIn lo convierte en StateFlow (siempre tiene un valor actual) atado a la vida del ViewModel.
     val state: StateFlow<RemoteUiState> =
-        combine(session.controller, recentSearches, message) { controller, recent, msg ->
+        combine(session.controller, recentSearches, turningOn, message) { controller, recent, waking, msg ->
             RemoteUiState(
                 device = controller?.device,
                 features = controller?.features.orEmpty(),
                 recentSearches = recent,
+                turningOn = waking,
                 message = msg,
             )
         }.stateIn(viewModelScope, SharingStarted.Eagerly, RemoteUiState())
 
-    override fun press(key: RemoteKey) = launchOnTv { session.current().sendKey(key) }
+    override fun press(key: RemoteKey) = launchOnTv {
+        if (key == RemoteKey.POWER) {
+            // "finally" se ejecuta siempre, salga bien o mal: así el cartel de espera nunca queda colgado.
+            try {
+                turnOnTv.pressPowerButton(onTurningOn = { turningOn.value = true })
+            } finally {
+                turningOn.value = false
+            }
+        } else {
+            session.current().sendKey(key)
+        }
+    }
 
     override fun sendText(text: String) {
         if (text.isBlank()) return
@@ -115,7 +132,7 @@ class RemoteViewModel(
             try {
                 action()
             } catch (e: TvError) {
-                message.value = UserMessage.Failure(e, session.controller.value?.device?.brand?.pairing)
+                message.value = UserMessage.Failure(e, session.controller.value?.device?.brand)
             }
         }
     }
@@ -127,7 +144,7 @@ class RemoteViewModel(
         val Factory: ViewModelProvider.Factory = viewModelFactory {
             initializer {
                 val container = appContainer()
-                RemoteViewModel(container.session, container.webSearch, container.searchHistory)
+                RemoteViewModel(container.session, container.webSearch, container.turnOnTv, container.searchHistory)
             }
         }
     }

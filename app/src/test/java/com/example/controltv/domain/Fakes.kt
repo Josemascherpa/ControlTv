@@ -2,6 +2,8 @@ package com.example.controltv.domain
 
 import com.example.controltv.domain.controller.CodePairing
 import com.example.controltv.domain.controller.ContentSearch
+import com.example.controltv.domain.controller.HardwareAddress
+import com.example.controltv.domain.controller.PowerOn
 import com.example.controltv.domain.controller.TvController
 import com.example.controltv.domain.controller.WebBrowser
 import com.example.controltv.domain.error.TvError
@@ -9,9 +11,11 @@ import com.example.controltv.domain.model.RemoteKey
 import com.example.controltv.domain.model.ScrollDirection
 import com.example.controltv.domain.model.TvDevice
 import com.example.controltv.domain.repository.CredentialStore
-import com.example.controltv.domain.repository.LastDeviceStore
+import com.example.controltv.domain.model.KnownTv
+import com.example.controltv.domain.repository.KnownTvs
 import com.example.controltv.domain.repository.PairedDevices
 import com.example.controltv.domain.repository.SearchHistory
+import com.example.controltv.domain.repository.TvWaker
 
 // Versiones "de mentira" de las piezas del dominio: guardan en memoria lo que les pasa,
 // así los tests pueden comprobar qué hizo la lógica sin red ni Android.
@@ -23,10 +27,17 @@ class FakeCredentials : CredentialStore {
     override fun clear(ip: String) { saved.remove(ip) }
 }
 
-class FakeLastDevice : LastDeviceStore {
-    var device: TvDevice? = null
-    override fun load(): TvDevice? = device
-    override fun save(device: TvDevice) { this.device = device }
+class FakeKnownTvs : KnownTvs {
+    val tvs = mutableListOf<KnownTv>()
+    override fun all(): List<KnownTv> = tvs.toList()
+    override fun save(tv: KnownTv) {
+        tvs.removeAll { it.device.ip == tv.device.ip }
+        tvs.add(0, tv)
+    }
+    override fun rename(ip: String, name: String) {
+        tvs.replaceAll { if (it.device.ip == ip) it.copy(device = it.device.copy(name = name)) else it }
+    }
+    override fun remove(ip: String) { tvs.removeAll { it.device.ip == ip } }
 }
 
 class FakePaired : PairedDevices {
@@ -39,6 +50,15 @@ class FakeHistory : SearchHistory {
     val items = mutableListOf<String>()
     override fun recent(): List<String> = items
     override fun add(query: String) { items.add(0, query) }
+}
+
+/** Anota a qué MAC se mandó el aviso de encendido. Si hay una [tv], la "prende" al recibirlo. */
+class FakeWaker(private val tv: FakeOffTv? = null) : TvWaker {
+    val woken = mutableListOf<List<String>>()
+    override suspend fun wake(ip: String, macAddresses: List<String>) {
+        woken.add(macAddresses)
+        tv?.off = false
+    }
 }
 
 /** TV básica: sólo botones. */
@@ -76,5 +96,28 @@ class FakeCodeTv(device: TvDevice, private val rightCode: String) : FakeTv(devic
     override suspend fun finishPairing(code: String) {
         if (code != rightCode) throw TvError.WrongPairingCode()
         paired = true
+    }
+}
+
+/**
+ * TV que se puede apagar: apagada no contesta (como una de verdad sin WiFi).
+ * Sabe su MAC y se puede prender con su protocolo ([PowerOn]) mientras está en espera.
+ */
+class FakeOffTv(device: TvDevice, var off: Boolean = false) : FakeTv(device), HardwareAddress, PowerOn {
+    val pressed = mutableListOf<RemoteKey>()
+    var turnedOn = false
+    override suspend fun connect() {
+        if (off) throw TvError.Unreachable()
+        super.connect()
+    }
+    override suspend fun sendKey(key: RemoteKey) {
+        if (off) throw TvError.ConnectionLost()
+        pressed.add(key)
+    }
+    override suspend fun macAddresses(): List<String> = listOf(MAC)
+    override suspend fun turnOn() { turnedOn = true }
+
+    companion object {
+        const val MAC = "A4:30:7A:12:34:56"
     }
 }

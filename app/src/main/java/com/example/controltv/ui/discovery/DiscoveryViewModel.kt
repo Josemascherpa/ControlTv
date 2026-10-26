@@ -7,11 +7,13 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.example.controltv.di.appContainer
 import com.example.controltv.domain.error.TvError
+import com.example.controltv.domain.model.KnownTv
 import com.example.controltv.domain.model.PairingMethod
 import com.example.controltv.domain.model.TvDevice
-import com.example.controltv.domain.repository.LastDeviceStore
+import com.example.controltv.domain.repository.KnownTvs
 import com.example.controltv.domain.repository.TvDiscovery
 import com.example.controltv.domain.usecase.ConnectToTvUseCase
+import com.example.controltv.domain.usecase.TurnOnTvUseCase
 import com.example.controltv.ui.messages.UserMessage
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -44,10 +46,18 @@ data class CodeRequest(val device: TvDevice, val wrongCode: Boolean = false, val
 /** Todo lo que la pantalla de búsqueda necesita para dibujarse, en un solo objeto inmutable. */
 data class DiscoveryUiState(
     val scanning: Boolean = false,
+    /** Lo que encontró la última búsqueda. */
     val devices: List<TvDevice> = emptyList(),
-    val lastDevice: TvDevice? = null,
+    /** "Mis TVs": las que ya se conectaron alguna vez, la última usada primero. */
+    val knownTvs: List<KnownTv> = emptyList(),
+    /** TV a la que la persona le está cambiando el nombre (muestra el cartel para escribirlo). */
+    val renaming: KnownTv? = null,
+    /** TV que la persona quiere quitar de la lista (muestra el cartel para confirmar). */
+    val removing: KnownTv? = null,
     /** TV con la que se está conectando ahora (muestra el cartel de "Conectando…"). */
     val connecting: TvDevice? = null,
+    /** TV apagada que estamos prendiendo (muestra el cartel de "Prendiendo…"). */
+    val turningOn: TvDevice? = null,
     /** TV que necesita clave y todavía no la tenemos (muestra el cartel para escribirla). */
     val keyRequest: TvDevice? = null,
     /** TV que está mostrando un código para escribir en el teléfono. */
@@ -55,7 +65,16 @@ data class DiscoveryUiState(
     /** Guía para activar la depuración (Google TV / Fire TV), si hay que mostrarla. */
     val setupGuide: SetupGuideRequest? = null,
     val message: UserMessage? = null,
-)
+) {
+    // Propiedades calculadas a partir de las de arriba ("get()" se ejecuta cada vez que se leen).
+
+    /** Las TVs encontradas que todavía no están en "Mis TVs". */
+    val newDevices: List<TvDevice>
+        get() = devices.filter { found -> knownTvs.none { it.device.ip == found.ip } }
+
+    /** Si una de "Mis TVs" apareció en la última búsqueda, o sea que está prendida. */
+    fun isOnNetwork(tv: KnownTv): Boolean = devices.any { it.ip == tv.device.ip }
+}
 
 /**
  * El ViewModel guarda el estado y la lógica de la pantalla, separado de la UI.
@@ -65,10 +84,11 @@ data class DiscoveryUiState(
 class DiscoveryViewModel(
     private val discovery: TvDiscovery,
     private val connectToTv: ConnectToTvUseCase,
-    lastDevice: LastDeviceStore,
+    private val turnOnTv: TurnOnTvUseCase,
+    private val knownTvs: KnownTvs,
 ) : ViewModel() {
 
-    private val _state = MutableStateFlow(DiscoveryUiState(lastDevice = lastDevice.load()))
+    private val _state = MutableStateFlow(DiscoveryUiState(knownTvs = knownTvs.all()))
     val state: StateFlow<DiscoveryUiState> = _state.asStateFlow()
 
     fun scan() {
@@ -81,7 +101,8 @@ class DiscoveryViewModel(
                 it.copy(
                     scanning = false,
                     devices = found,
-                    message = if (found.isEmpty()) UserMessage.NoTvsFound else null,
+                    // Si ya tiene TVs guardadas no hace falta el aviso: ahí ve si están prendidas o no.
+                    message = if (found.isEmpty() && it.knownTvs.isEmpty()) UserMessage.NoTvsFound else null,
                 )
             }
         }
@@ -127,12 +148,18 @@ class DiscoveryViewModel(
         viewModelScope.launch {
             _state.update { it.copy(connecting = device, keyRequest = null) }
             try {
-                connectToTv(device, key)
-                _state.update { it.copy(connecting = null, lastDevice = device) }
+                try {
+                    connectToTv(device, key)
+                } catch (e: TvError.Unreachable) {
+                    // No contesta: lo más probable es que esté apagada. Probamos prenderla.
+                    _state.update { it.copy(connecting = null, turningOn = device) }
+                    turnOnTv(device)
+                }
+                _state.update { it.copy(connecting = null, turningOn = null, knownTvs = knownTvs.all()) }
             } catch (e: TvError.MissingKey) {
-                _state.update { it.copy(connecting = null, keyRequest = device) }
+                _state.update { it.copy(connecting = null, turningOn = null, keyRequest = device) }
             } catch (e: TvError.PairingCodeRequired) {
-                _state.update { it.copy(connecting = null, codeRequest = CodeRequest(device)) }
+                _state.update { it.copy(connecting = null, turningOn = null, codeRequest = CodeRequest(device)) }
             } catch (e: TvError) {
                 showFailure(device, e)
             }
@@ -146,7 +173,7 @@ class DiscoveryViewModel(
             _state.update { it.copy(codeRequest = request.copy(checking = true)) }
             try {
                 connectToTv.submitPairingCode(code)
-                _state.update { it.copy(codeRequest = null, lastDevice = request.device) }
+                _state.update { it.copy(codeRequest = null, knownTvs = knownTvs.all()) }
             } catch (e: TvError.WrongPairingCode) {
                 // Dejamos el cartel abierto para que lo vuelva a escribir.
                 _state.update { it.copy(codeRequest = request.copy(wrongCode = true, checking = false)) }
@@ -164,9 +191,9 @@ class DiscoveryViewModel(
 
     private fun showFailure(device: TvDevice, error: TvError) = _state.update {
         if (needsSetupHelp(device, error)) {
-            it.copy(connecting = null, setupGuide = SetupGuideRequest(device, SetupGuideReason.FAILED))
+            it.copy(connecting = null, turningOn = null, setupGuide = SetupGuideRequest(device, SetupGuideReason.FAILED))
         } else {
-            it.copy(connecting = null, message = UserMessage.Failure(error, device.brand.pairing))
+            it.copy(connecting = null, turningOn = null, message = UserMessage.Failure(error, device.brand))
         }
     }
 
@@ -174,6 +201,27 @@ class DiscoveryViewModel(
     private fun needsSetupHelp(device: TvDevice, error: TvError): Boolean =
         device.brand.pairing == PairingMethod.ALLOW_DEBUGGING &&
             (error is TvError.PairingRejected || error is TvError.PairingTimeout)
+
+    fun startRename(tv: KnownTv) = _state.update { it.copy(renaming = tv) }
+
+    fun rename(name: String) {
+        val tv = _state.value.renaming ?: return
+        val trimmed = name.trim()
+        if (trimmed.isNotEmpty()) knownTvs.rename(tv.device.ip, trimmed)
+        _state.update { it.copy(renaming = null, knownTvs = knownTvs.all()) }
+    }
+
+    fun cancelRename() = _state.update { it.copy(renaming = null) }
+
+    fun askRemove(tv: KnownTv) = _state.update { it.copy(removing = tv) }
+
+    fun confirmRemove() {
+        val tv = _state.value.removing ?: return
+        knownTvs.remove(tv.device.ip)
+        _state.update { it.copy(removing = null, knownTvs = knownTvs.all()) }
+    }
+
+    fun cancelRemove() = _state.update { it.copy(removing = null) }
 
     fun cancelKeyRequest() = _state.update { it.copy(keyRequest = null) }
 
@@ -184,7 +232,7 @@ class DiscoveryViewModel(
         val Factory: ViewModelProvider.Factory = viewModelFactory {
             initializer {
                 val container = appContainer()
-                DiscoveryViewModel(container.discovery, container.connectToTv, container.lastDevice)
+                DiscoveryViewModel(container.discovery, container.connectToTv, container.turnOnTv, container.knownTvs)
             }
         }
     }

@@ -42,6 +42,7 @@ import androidx.compose.ui.unit.dp
 import com.example.controltv.domain.model.RemoteKey
 import com.example.controltv.domain.model.TvDevice
 import com.example.controltv.domain.model.TvFeature
+import com.example.controltv.ui.components.TurningOnDialog
 
 /**
  * El control remoto. Tiene pestañas para no amontonar todo en una sola pantalla:
@@ -92,6 +93,7 @@ fun RemoteScreen(
             }
         }
     }
+    if (state.turningOn) TurningOnDialog(device.name)
 }
 
 private enum class RemoteTab(val label: String, val icon: ImageVector) {

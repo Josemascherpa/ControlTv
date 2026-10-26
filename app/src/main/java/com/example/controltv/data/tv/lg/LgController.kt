@@ -2,6 +2,7 @@ package com.example.controltv.data.tv.lg
 
 import com.example.controltv.data.network.openWebSocket
 import com.example.controltv.data.network.sendOrThrow
+import com.example.controltv.domain.controller.HardwareAddress
 import com.example.controltv.domain.controller.PointerInput
 import com.example.controltv.domain.controller.TextInput
 import com.example.controltv.domain.controller.TvController
@@ -32,7 +33,7 @@ class LgController(
     override val device: TvDevice,
     private val credentials: CredentialStore,
     private val client: OkHttpClient,
-) : TvController, TextInput, WebBrowser, PointerInput {
+) : TvController, TextInput, WebBrowser, PointerInput, HardwareAddress {
 
     private var socket: WebSocket? = null
     private var pointer: WebSocket? = null
@@ -158,6 +159,14 @@ class LgController(
 
     override suspend fun click() {
         pointer.sendOrThrow("type:click\n\n")
+    }
+
+    // La TV informa sus dos placas de red (WiFi y cable), cada una con su MAC.
+    override suspend fun macAddresses(): List<String> {
+        val info = request("ssap://com.webos.service.connectionmanager/getinfo")
+        return listOf("wifiInfo", "wiredInfo").mapNotNull { network ->
+            info.optJSONObject(network)?.optString("macAddress")?.takeIf { it.isNotEmpty() }
+        }
     }
 
     private fun buttonName(key: RemoteKey): String = when (key) {

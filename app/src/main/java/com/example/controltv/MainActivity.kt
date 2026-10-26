@@ -100,6 +100,12 @@ fun ControlTvApp(
                 onShowSetupGuide = discoveryViewModel::showSetupGuide,
                 onConfirmSetupGuide = discoveryViewModel::confirmSetupGuide,
                 onDismissSetupGuide = discoveryViewModel::dismissSetupGuide,
+                onRename = discoveryViewModel::startRename,
+                onConfirmRename = discoveryViewModel::rename,
+                onCancelRename = discoveryViewModel::cancelRename,
+                onRemove = discoveryViewModel::askRemove,
+                onConfirmRemove = discoveryViewModel::confirmRemove,
+                onCancelRemove = discoveryViewModel::cancelRemove,
                 modifier = Modifier.padding(innerPadding),
             )
         }

@@ -2,6 +2,7 @@ package com.example.controltv.ui.messages
 
 import com.example.controltv.domain.error.TvError
 import com.example.controltv.domain.model.PairingMethod
+import com.example.controltv.domain.model.TvBrand
 import com.example.controltv.domain.model.TvFeature
 
 /**
@@ -13,8 +14,8 @@ sealed interface UserMessage {
 
     data class NoTvAtIp(val ip: String) : UserMessage
 
-    /** Un error de la TV. [pairing] permite dar la ayuda justa para esa marca. */
-    data class Failure(val error: TvError, val pairing: PairingMethod?) : UserMessage
+    /** Un error de la TV. [brand] permite dar la ayuda justa para esa marca. */
+    data class Failure(val error: TvError, val brand: TvBrand?) : UserMessage
 }
 
 fun UserMessage.text(): String = when (this) {
@@ -23,19 +24,23 @@ fun UserMessage.text(): String = when (this) {
             "Si es Google TV o Fire TV, tocá «¿Tenés Google TV o Fire TV y no aparece?»."
     is UserMessage.NoTvAtIp ->
         "No se encontró ninguna TV en $ip. Revisá el número en la TV, en Ajustes > Red > Estado de la red."
-    is UserMessage.Failure -> error.text(pairing)
+    is UserMessage.Failure -> error.text(brand)
 }
 
 // Como TvError es "sealed", si mañana se agrega un error nuevo este "when" no compila hasta
 // que le escribamos su mensaje. Así ningún error queda sin explicar.
-private fun TvError.text(pairing: PairingMethod?): String = when (this) {
+private fun TvError.text(brand: TvBrand?): String = when (this) {
     is TvError.Unreachable ->
         "No se pudo conectar con la TV. Fijate que esté prendida y en el mismo WiFi que el teléfono."
     is TvError.ConnectionLost, is TvError.NotConnected ->
         "Se cortó la conexión con la TV. Tocá \"Cambiar TV\" y volvé a conectarla."
+    is TvError.CantTurnOn ->
+        "No se pudo prender la TV desde el teléfono. Prendela con el control y activá " +
+            "${brand?.powerOnSetting() ?: "la opción para encenderla por WiFi en los ajustes"}. " +
+            "Después conectala una vez desde la app estando prendida, así aprende a prenderla."
     is TvError.NoResponse ->
         "La TV no contestó. Probá de nuevo en unos segundos."
-    is TvError.PairingTimeout -> when (pairing) {
+    is TvError.PairingTimeout -> when (brand?.pairing) {
         PairingMethod.ALLOW_DEBUGGING -> "La TV no respondió. Cuando aparezca \"¿Permitir depuración?\", elegí Permitir."
         else -> "La TV no respondió. Cuando aparezca el mensaje en la TV, aceptalo con el control."
     }
@@ -43,7 +48,7 @@ private fun TvError.text(pairing: PairingMethod?): String = when (this) {
         "Escribí el código que aparece en la pantalla de la TV."
     is TvError.WrongPairingCode ->
         "El código no coincide. Fijate bien en la TV y escribilo de nuevo."
-    is TvError.PairingRejected -> when (pairing) {
+    is TvError.PairingRejected -> when (brand?.pairing) {
         PairingMethod.ALLOW_DEBUGGING ->
             "No se pudo conectar. En la TV activá la depuración en Ajustes > Sistema > Opciones de " +
                 "desarrollador y aceptá el mensaje que aparece."
@@ -70,6 +75,19 @@ private fun TvError.text(pairing: PairingMethod?): String = when (this) {
     }
     is TvError.DeviceError ->
         "La TV no pudo hacer lo que le pediste. Probá de nuevo."
+}
+
+/**
+ * Dónde se activa en cada TV la opción para que se pueda prender por WiFi (con el teléfono).
+ * Los nombres cambian un poco según el modelo; ponemos el más común.
+ */
+private fun TvBrand.powerOnSetting(): String = when (this) {
+    TvBrand.SAMSUNG -> "Ajustes > General > Red > Configuración experta > Encender con dispositivo móvil"
+    TvBrand.LG -> "Ajustes > General > Dispositivos > Configuración de TV > Encender TV con móvil"
+    TvBrand.GOOGLE_TV, TvBrand.ANDROID ->
+        "Ajustes > Sistema > Energía > Encender por red (en algunas dice \"Wake on LAN\")"
+    TvBrand.ROKU -> "Ajustes > Sistema > Energía > Inicio rápido de TV"
+    TvBrand.SONY -> "Ajustes > Red > Control remoto > Encendido remoto"
 }
 
 /** Lo que se muestra mientras conecta: qué tiene que hacer la persona en la TV. */

@@ -26,4 +26,7 @@ internal suspend fun isPortOpen(ip: String, port: Int): Boolean = withContext(Di
     }
 }
 
-private const val PORT_TIMEOUT_MS = 350
+// Un aparato que estuvo un rato sin usar la red tarda en contestar la primera vez (sobre todo
+// desde un teléfono por WiFi, y mientras se prueban muchas IPs a la vez). Con menos tiempo,
+// TVs que sí están prendidas no aparecían en la búsqueda.
+private const val PORT_TIMEOUT_MS = 1_500

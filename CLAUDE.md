@@ -117,15 +117,17 @@ al menos dos semanas.
 ```
 controltv/
 ├── domain/                 Kotlin puro: no importa Android, ni data, ni ui
-│   ├── model/              TvDevice, TvBrand (+ PairingMethod), RemoteKey, ScrollDirection, TvFeature
+│   ├── model/              TvDevice, KnownTv, TvBrand (+ PairingMethod), RemoteKey, ScrollDirection, TvFeature
 │   ├── error/              TvError
-│   ├── controller/         TvController (básico) + TextInput, WebBrowser, ContentSearch; la fábrica
-│   ├── repository/         TvDiscovery, CredentialStore, LastDeviceStore, PairedDevices, SearchHistory
+│   ├── controller/         TvController (básico) + TextInput, WebBrowser, ContentSearch, PowerOn,
+│   │                       HardwareAddress (MAC para Wake-on-LAN); la fábrica
+│   ├── repository/         TvDiscovery, CredentialStore, KnownTvs ("Mis TVs"), PairedDevices,
+│   │                       SearchHistory, TvWaker
 │   ├── session/            TvSession: la TV conectada ahora
 │   ├── web/                WebLinks: arma URLs de búsqueda
-│   └── usecase/            ConnectToTvUseCase, WebSearchUseCase
+│   └── usecase/            ConnectToTvUseCase, TurnOnTvUseCase, WebSearchUseCase
 ├── data/                   implementaciones concretas
-│   ├── network/            clientes OkHttp, WebSockets, ioCall (conversión de errores)
+│   ├── network/            clientes OkHttp, WebSockets, ioCall (conversión de errores), WakeOnLanSender
 │   ├── local/              SharedPreferences (una clase por interfaz)
 │   ├── discovery/          NetworkTvScanner (recorre la red) y la interfaz TvDetector
 │   └── tv/<marca>/         <Marca>Controller + <Marca>Detector; DefaultTvControllerFactory
@@ -134,7 +136,7 @@ controltv/
 └── ui/
     ├── messages/           UserMessage y sus textos
     ├── components/         botones y piezas comunes
-    ├── discovery/          DiscoveryViewModel + DiscoveryScreen + DebuggingSetupGuide
+    ├── discovery/          DiscoveryViewModel + DiscoveryScreen + KnownTvsList + DebuggingSetupGuide
     └── remote/             RemoteViewModel (+ RemoteActions), RemoteScreen, ControlTab, InternetTab
 ```
 
@@ -147,11 +149,14 @@ controltv/
 1. Valor nuevo en `TvBrand` (`domain/model/TvBrand.kt`) con su `PairingMethod`.
 2. En `data/tv/<marca>/`:
    - `<Marca>Controller`: implementa `TvController` y las interfaces extra que pueda cumplir
-     (`TextInput`, `WebBrowser`, `ContentSearch`). Lanza sólo `TvError`.
+     (`TextInput`, `WebBrowser`, `ContentSearch`, `PointerInput`). Lanza sólo `TvError`.
+     Para que se pueda prender desde el teléfono: `HardwareAddress` (dar su MAC) y, si en espera
+     sigue atendiendo la red, `PowerOn`.
    - `<Marca>Detector`: implementa `TvDetector`.
 3. Caso en `DefaultTvControllerFactory`.
 4. Agregar el detector a la lista de `AppContainer` (el orden importa: gana el primero).
-5. Si usa un `PairingMethod` nuevo, escribir su ayuda en `connectingHint()` y sus mensajes de
+5. Escribir en `powerOnSetting()` (`UserMessages.kt`) dónde se activa en esa TV el encendido por WiFi.
+6. Si usa un `PairingMethod` nuevo, escribir su ayuda en `connectingHint()` y sus mensajes de
    error en `UserMessages.kt` (el compilador avisa si falta alguno).
 
 ## Compilar

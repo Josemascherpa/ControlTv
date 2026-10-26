@@ -23,6 +23,12 @@ sealed class TvError(cause: Throwable? = null) : Exception(cause) {
     /** Se intentó mandar algo sin tener una TV conectada. */
     class NotConnected : TvError()
 
+    /**
+     * La TV está apagada y no se pudo prender desde el teléfono: no tiene activada la opción de
+     * encenderse por WiFi, o todavía no sabemos su MAC (nunca se conectó estando prendida).
+     */
+    class CantTurnOn : TvError()
+
     /** La TV recibió el pedido pero no contestó a tiempo. */
     class NoResponse : TvError()
 

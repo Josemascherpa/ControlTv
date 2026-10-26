@@ -1,6 +1,7 @@
 package com.example.controltv.domain
 
 import com.example.controltv.domain.error.TvError
+import com.example.controltv.domain.model.KnownTv
 import com.example.controltv.domain.model.TvBrand
 import com.example.controltv.domain.model.TvDevice
 import com.example.controltv.domain.session.TvSession
@@ -16,11 +17,11 @@ import org.junit.Test
 class ConnectToTvUseCaseTest {
 
     private val credentials = FakeCredentials()
-    private val lastDevice = FakeLastDevice()
+    private val knownTvs = FakeKnownTvs()
     private val paired = FakePaired()
     private val session = TvSession()
 
-    private fun useCase(tv: FakeTv) = ConnectToTvUseCase({ tv }, credentials, lastDevice, paired, session)
+    private fun useCase(tv: FakeTv) = ConnectToTvUseCase({ tv }, credentials, knownTvs, paired, session)
 
     @Test
     fun `conecta, deja la TV como actual y la recuerda`() = runBlocking {
@@ -30,7 +31,7 @@ class ConnectToTvUseCaseTest {
 
         assertTrue(tv.connected)
         assertSame(tv, session.controller.value)
-        assertEquals(tv.device, lastDevice.device)
+        assertEquals(tv.device, knownTvs.all().first().device)
     }
 
     @Test
@@ -74,7 +75,7 @@ class ConnectToTvUseCaseTest {
         assertTrue(error is TvError.PairingTimeout)
         assertTrue(tv.disconnected)
         assertNull(session.controller.value)
-        assertNull(lastDevice.device)
+        assertTrue(knownTvs.all().isEmpty())
     }
 
     @Test
@@ -106,5 +107,26 @@ class ConnectToTvUseCaseTest {
         assertTrue(tv.disconnected)
         val error = runCatching { connect.submitPairingCode("4A21F0") }.exceptionOrNull()
         assertTrue(error is TvError.NotConnected)
+    }
+
+    @Test
+    fun `al reconectar una TV conocida usa el nombre que le puso la persona`() = runBlocking {
+        val found = TvDevice("192.168.1.10", "LG webOS TV", TvBrand.LG)
+        knownTvs.save(KnownTv(found.copy(name = "TV del living")))
+        // Como la fábrica de verdad: el controlador se crea con la TV que le pasan.
+        ConnectToTvUseCase({ FakeTv(it) }, credentials, knownTvs, paired, session)(found)
+
+        assertEquals("TV del living", session.current().device.name)
+        assertEquals("TV del living", knownTvs.all().single().device.name)
+    }
+
+    @Test
+    fun `si en esa IP ahora hay otra marca, no le pone el nombre guardado`() = runBlocking {
+        knownTvs.save(KnownTv(TvDevice("192.168.1.10", "TV del living", TvBrand.LG)))
+        val found = TvDevice("192.168.1.10", "Samsung TV", TvBrand.SAMSUNG)
+
+        useCase(FakeTv(found))(found)
+
+        assertEquals("Samsung TV", knownTvs.all().single().device.name)
     }
 }

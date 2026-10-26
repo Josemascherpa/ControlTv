@@ -1,5 +1,6 @@
 package com.example.controltv.domain.repository
 
+import com.example.controltv.domain.model.KnownTv
 import com.example.controltv.domain.model.TvDevice
 
 // Interfaces para todo lo que viene "de afuera" (la red, lo guardado en el teléfono).
@@ -24,11 +25,21 @@ interface CredentialStore {
     fun clear(ip: String)
 }
 
-/** La última TV usada, para ofrecer reconectar con un toque. */
-interface LastDeviceStore {
-    fun load(): TvDevice?
+/** "Mis TVs": las que ya se conectaron alguna vez, con el nombre que les puso la persona y su MAC. */
+interface KnownTvs {
+    /** Todas, la última usada primero. */
+    fun all(): List<KnownTv>
 
-    fun save(device: TvDevice)
+    // Una interfaz puede traer funciones ya hechas: quien la implementa no necesita escribirlas.
+    fun find(ip: String): KnownTv? = all().find { it.device.ip == ip }
+
+    /** La agrega (o la actualiza si ya estaba) y la pone primera, como la última usada. */
+    fun save(tv: KnownTv)
+
+    /** Le cambia el nombre sin cambiarla de lugar. */
+    fun rename(ip: String, name: String)
+
+    fun remove(ip: String)
 }
 
 /** Las TVs que ya se conectaron bien alguna vez (así sabemos si hace falta explicar cómo prepararlas). */
@@ -36,6 +47,11 @@ interface PairedDevices {
     fun isPaired(ip: String): Boolean
 
     fun markPaired(ip: String)
+}
+
+/** Despierta TVs apagadas mandándoles el aviso "Wake-on-LAN" por la red WiFi. */
+interface TvWaker {
+    suspend fun wake(ip: String, macAddresses: List<String>)
 }
 
 /** Las últimas búsquedas, la más nueva primero. */

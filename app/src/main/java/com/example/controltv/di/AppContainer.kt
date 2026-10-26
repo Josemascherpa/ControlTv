@@ -7,10 +7,11 @@ import com.example.controltv.ControlTvApplication
 import com.example.controltv.data.discovery.LocalSubnet
 import com.example.controltv.data.discovery.NetworkTvScanner
 import com.example.controltv.data.local.PrefsCredentialStore
-import com.example.controltv.data.local.PrefsLastDeviceStore
+import com.example.controltv.data.local.PrefsKnownTvs
 import com.example.controltv.data.local.PrefsPairedDevices
 import com.example.controltv.data.local.PrefsSearchHistory
 import com.example.controltv.data.network.NetworkClients
+import com.example.controltv.data.network.WakeOnLanSender
 import com.example.controltv.data.tv.DefaultTvControllerFactory
 import com.example.controltv.data.tv.android.AndroidTvDetector
 import com.example.controltv.data.tv.googletv.GoogleTvDetector
@@ -19,11 +20,12 @@ import com.example.controltv.data.tv.roku.RokuDetector
 import com.example.controltv.data.tv.samsung.SamsungDetector
 import com.example.controltv.data.tv.sony.SonyDetector
 import com.example.controltv.domain.repository.CredentialStore
-import com.example.controltv.domain.repository.LastDeviceStore
+import com.example.controltv.domain.repository.KnownTvs
 import com.example.controltv.domain.repository.SearchHistory
 import com.example.controltv.domain.repository.TvDiscovery
 import com.example.controltv.domain.session.TvSession
 import com.example.controltv.domain.usecase.ConnectToTvUseCase
+import com.example.controltv.domain.usecase.TurnOnTvUseCase
 import com.example.controltv.domain.usecase.WebSearchUseCase
 import java.io.File
 
@@ -37,14 +39,15 @@ class AppContainer(context: Context) {
     private val appContext = context.applicationContext
     private val prefs = appContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
     private val credentials: CredentialStore = PrefsCredentialStore(prefs)
+    private val subnet = LocalSubnet(appContext)
 
-    val lastDevice: LastDeviceStore = PrefsLastDeviceStore(prefs)
+    val knownTvs: KnownTvs = PrefsKnownTvs(prefs)
     val searchHistory: SearchHistory = PrefsSearchHistory(prefs)
     val session = TvSession()
 
     // El orden importa: gana el primer detector que reconoce la TV.
     val discovery: TvDiscovery = NetworkTvScanner(
-        subnet = LocalSubnet(appContext),
+        subnet = subnet,
         detectors = listOf(
             SamsungDetector(NetworkClients.http),
             LgDetector(),
@@ -66,8 +69,15 @@ class AppContainer(context: Context) {
             googleTvIdentityFile = File(appContext.filesDir, GOOGLE_TV_IDENTITY_FILE),
         ),
         credentials = credentials,
-        lastDevice = lastDevice,
+        knownTvs = knownTvs,
         pairedDevices = PrefsPairedDevices(prefs),
+        session = session,
+    )
+
+    val turnOnTv = TurnOnTvUseCase(
+        waker = WakeOnLanSender(subnet),
+        knownTvs = knownTvs,
+        connectToTv = connectToTv,
         session = session,
     )
 

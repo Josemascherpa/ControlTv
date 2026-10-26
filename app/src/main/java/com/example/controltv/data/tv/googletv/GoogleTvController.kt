@@ -1,5 +1,6 @@
 package com.example.controltv.data.tv.googletv
 
+import com.example.controltv.data.network.call
 import com.example.controltv.data.network.ioCall
 import com.example.controltv.data.network.logNetworkError
 import com.example.controltv.data.tv.googletv.proto.RemoteDirection
@@ -17,6 +18,8 @@ import com.example.controltv.data.tv.googletv.proto.remoteMessage
 import com.example.controltv.data.tv.googletv.proto.remotePingResponse
 import com.example.controltv.data.tv.googletv.proto.remoteSetActive
 import com.example.controltv.domain.controller.CodePairing
+import com.example.controltv.domain.controller.HardwareAddress
+import com.example.controltv.domain.controller.PowerOn
 import com.example.controltv.domain.controller.TextInput
 import com.example.controltv.domain.controller.TvController
 import com.example.controltv.domain.controller.WebBrowser
@@ -31,6 +34,10 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import org.json.JSONException
+import org.json.JSONObject
 import java.io.IOException
 
 /**
@@ -43,11 +50,15 @@ import java.io.IOException
  *     conoce, rechaza la conexión y hay que emparejar.
  *
  * Basado en github.com/tronikos/androidtvremote2 (Python, licencia Apache 2.0).
+ *
+ * La MAC no viene en este protocolo: se la pedimos al Chromecast que traen adentro casi todas
+ * las Google TV (http://IP:8008/setup/eureka_info). Si no lo tiene, nos quedamos sin MAC.
  */
 class GoogleTvController internal constructor(
     override val device: TvDevice,
     private val identity: ClientIdentity,
-) : TvController, TextInput, WebBrowser, CodePairing {
+    private val http: OkHttpClient,
+) : TvController, TextInput, WebBrowser, CodePairing, HardwareAddress, PowerOn {
 
     // @Volatile: lo usan dos hilos (el que lee mensajes y el que manda botones).
     @Volatile private var channel: TlsChannel? = null
@@ -58,6 +69,9 @@ class GoogleTvController internal constructor(
     @Volatile private var activeFeatures = WANTED_FEATURES
     @Volatile private var imeCounter = 0
     @Volatile private var imeFieldCounter = 0
+
+    // La TV avisa (en "remote_start") si la pantalla está prendida o en espera, y vuelve a avisar cuando cambia.
+    @Volatile private var screenOn = true
 
     /**
      * Cuando la TV no conoce nuestro certificado, cada modelo lo dice distinto: algunas mandan un
@@ -159,7 +173,10 @@ class GoogleTvController internal constructor(
             message.hasRemoteSetActive() ->
                 opened.send(remoteMessage { remoteSetActive = remoteSetActive { active = activeFeatures } })
             // 2) Cuando manda "remote_start", ya se le pueden mandar botones.
-            message.hasRemoteStart() -> ready.complete(Unit)
+            message.hasRemoteStart() -> {
+                screenOn = message.remoteStart.started
+                ready.complete(Unit)
+            }
             // La TV pregunta cada tanto si seguimos ahí; si no contestamos, corta.
             message.hasRemotePingRequest() ->
                 opened.send(remoteMessage { remotePingResponse = remotePingResponse { val1 = message.remotePingRequest.val1 } })
@@ -213,6 +230,23 @@ class GoogleTvController internal constructor(
         },
     )
 
+    // En espera la TV sigue atendiendo el control por la red: si la pantalla está apagada, "apretamos" encender.
+    override suspend fun turnOn() {
+        if (!screenOn) press(RemoteKeyCode.KEYCODE_POWER)
+    }
+
+    override suspend fun macAddresses(): List<String> {
+        val request = Request.Builder().url("http://${device.ip}:$CAST_PORT/setup/eureka_info?params=device_info").build()
+        val info = try {
+            JSONObject(http.call(request).body)
+        } catch (e: JSONException) {
+            return emptyList() // no tiene Chromecast adentro (o contestó otra cosa): seguimos sin MAC
+        }
+        // Según la versión, la MAC viene suelta o adentro de "device_info".
+        val mac = info.optString("mac_address").ifEmpty { info.optJSONObject("device_info")?.optString("mac_address").orEmpty() }
+        return listOfNotNull(mac.takeIf { it.isNotEmpty() })
+    }
+
     // Un toque corto de un botón ("SHORT"; también existe mantenerlo apretado).
     private suspend fun press(code: RemoteKeyCode) = send {
         remoteKeyInject = remoteKeyInject {
@@ -260,6 +294,7 @@ class GoogleTvController internal constructor(
     companion object {
         const val REMOTE_PORT = 6466
         const val PAIRING_PORT = 6467
+        private const val CAST_PORT = 8008
 
         private const val PACKAGE_NAME = "atvremote"
         private const val APP_VERSION = "1.0.0"

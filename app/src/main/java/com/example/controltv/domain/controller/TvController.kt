@@ -67,6 +67,25 @@ interface CodePairing {
     suspend fun finishPairing(code: String)
 }
 
+/**
+ * TVs que nos pueden decir su "dirección física" (MAC): un número fijo de su placa de red.
+ * Lo guardamos mientras está prendida porque, apagada, la única forma de despertarla es mandarle
+ * por WiFi un aviso especial ("Wake-on-LAN") dirigido a ese número.
+ */
+interface HardwareAddress {
+    /** Las MAC de la TV (WiFi y cable, si tiene las dos), ej. "A4:30:7A:12:34:56". Vacía si no las sabe. */
+    suspend fun macAddresses(): List<String>
+}
+
+/**
+ * TVs que en modo de espera siguen escuchando por la red y se pueden prender con su propio
+ * protocolo (ej. Roku con "Inicio rápido", Google TV, Sony con "Encendido remoto").
+ */
+interface PowerOn {
+    /** Prende la pantalla. Si ya estaba prendida, no hace nada (no la apaga). */
+    suspend fun turnOn()
+}
+
 /** Qué funciones extra tiene esta TV, según las interfaces que implementa. */
 val TvController.features: Set<TvFeature>
     get() = buildSet {
