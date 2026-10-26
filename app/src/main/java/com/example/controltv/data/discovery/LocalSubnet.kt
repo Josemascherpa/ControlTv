@@ -39,7 +39,9 @@ class LocalSubnet(private val context: Context) {
     private fun localNetwork(cm: ConnectivityManager): Network? =
         cm.allNetworks.firstOrNull { network ->
             val capabilities = cm.getNetworkCapabilities(network) ?: return@firstOrNull false
-            capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) ||
-                capabilities.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET)
+            // Una VPN también dice "WiFi" si va por encima del WiFi: la salteamos.
+            !capabilities.hasTransport(NetworkCapabilities.TRANSPORT_VPN) &&
+                (capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) ||
+                    capabilities.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET))
         } ?: cm.activeNetwork
 }

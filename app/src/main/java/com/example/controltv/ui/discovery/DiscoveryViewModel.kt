@@ -96,13 +96,12 @@ class DiscoveryViewModel(
         // viewModelScope lanza una corrutina que se cancela sola si se destruye el ViewModel.
         viewModelScope.launch {
             _state.update { it.copy(scanning = true) }
-            val found = discovery.scan()
+            val result = discovery.scan(knownIps = knownTvs.all().map { it.device.ip })
             _state.update {
                 it.copy(
                     scanning = false,
-                    devices = found,
-                    // Si ya tiene TVs guardadas no hace falta el aviso: ahí ve si están prendidas o no.
-                    message = if (found.isEmpty() && it.knownTvs.isEmpty()) UserMessage.NoTvsFound else null,
+                    devices = result.devices,
+                    message = if (result.devices.isEmpty()) UserMessage.NoTvsFound(result.network) else null,
                 )
             }
         }

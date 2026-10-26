@@ -1,6 +1,7 @@
 package com.example.controltv.domain.repository
 
 import com.example.controltv.domain.model.KnownTv
+import com.example.controltv.domain.model.ScanResult
 import com.example.controltv.domain.model.TvDevice
 
 // Interfaces para todo lo que viene "de afuera" (la red, lo guardado en el teléfono).
@@ -9,8 +10,11 @@ import com.example.controltv.domain.model.TvDevice
 
 /** Busca TVs en la red. */
 interface TvDiscovery {
-    /** Recorre la red WiFi y devuelve las TVs encontradas (vacía si no hay ninguna). */
-    suspend fun scan(): List<TvDevice>
+    /**
+     * Recorre la red WiFi y devuelve las TVs encontradas.
+     * @param knownIps IPs que se prueban sí o sí (las de "Mis TVs"), aunque estén fuera de la red recorrida.
+     */
+    suspend fun scan(knownIps: List<String> = emptyList()): ScanResult
 
     /** Prueba una IP puntual. Devuelve null si ahí no hay una TV conocida. */
     suspend fun probe(ip: String): TvDevice?

@@ -10,7 +10,8 @@ import com.example.controltv.domain.model.TvFeature
  * el texto se arma acá, en un solo lugar, en español simple y diciendo qué hacer.
  */
 sealed interface UserMessage {
-    data object NoTvsFound : UserMessage
+    /** @param network la red en la que se buscó (ej. "192.168.100."), o null si no hay WiFi. */
+    data class NoTvsFound(val network: String?) : UserMessage
 
     data class NoTvAtIp(val ip: String) : UserMessage
 
@@ -19,9 +20,12 @@ sealed interface UserMessage {
 }
 
 fun UserMessage.text(): String = when (this) {
-    UserMessage.NoTvsFound ->
-        "No se encontró ninguna TV. Fijate que esté prendida y en el mismo WiFi que el teléfono. " +
-            "Si es Google TV o Fire TV, tocá «¿Tenés Google TV o Fire TV y no aparece?»."
+    is UserMessage.NoTvsFound -> if (network == null) {
+        "El teléfono no está conectado a ningún WiFi. Conectalo al WiFi de tu casa y tocá «Buscar TVs»."
+    } else {
+        "No se encontró ninguna TV (se buscó en la red ${network}x). Fijate que esté prendida y en el " +
+            "mismo WiFi que el teléfono. Si es Google TV o Fire TV, tocá «¿Tenés Google TV o Fire TV y no aparece?»."
+    }
     is UserMessage.NoTvAtIp ->
         "No se encontró ninguna TV en $ip. Revisá el número en la TV, en Ajustes > Red > Estado de la red."
     is UserMessage.Failure -> error.text(brand)
