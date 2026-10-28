@@ -5,7 +5,7 @@
 syntax = "proto3";
 package remote;
 
-option java_package = "com.example.controltv.data.tv.googletv.proto";
+option java_package = "ar.com.josemascherpa.controltv.data.tv.googletv.proto";
 option java_multiple_files = true;
 // Sin esto protobuf crea una clase "Remotemessage" (por el nombre del archivo), que en discos que no
 // distinguen mayúsculas (macOS) pisa a la clase "RemoteMessage".

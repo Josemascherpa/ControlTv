@@ -12,11 +12,18 @@ ControlTv busca resolver eso con una app **muy simple e intuitiva**, pensada tam
 grande:
 
 - **Encuentra la TV sola.** Abrís la app y busca las TVs de tu WiFi. La próxima vez reconecta con un toque.
-- **Botones grandes y con nombre.** Nada de íconos para adivinar.
+- **Botones grandes y con nombre.** Encendido y volumen siempre a mano en Control, Puntero e Internet.
+- **Modo simple.** Una pantalla con lo esencial y búsqueda por voz; la elección queda guardada.
 - **Internet fácil.** Buscás en Google o YouTube escribiendo en el teléfono, o directamente
   **hablando** 🎤. Hay páginas favoritas a un toque, las últimas búsquedas guardadas y botones para
-  subir y bajar la página.
+  subir y bajar la página. Podés agregar, editar, quitar y ordenar tus favoritos, y borrar una búsqueda o todo el historial.
 - **Mensajes claros.** Si algo falla, la app explica qué hacer en castellano simple, sin términos técnicos.
+
+## Capturas
+
+Interfaz en un emulador Android, con una TV simulada para las pruebas:
+
+<img src="docs/images/control.png" width="250" alt="Control con encendido y volumen siempre visibles"> <img src="docs/images/simple.png" width="250" alt="Modo simple con búsqueda por voz"> <img src="docs/images/puntero.png" width="250" alt="Pad para mover el puntero de la TV">
 
 ## Marcas compatibles
 
@@ -64,8 +71,56 @@ Abrir el proyecto en Android Studio, o desde la terminal:
 
 El teléfono y la TV tienen que estar en la **misma red WiFi**.
 
-## Próximos pasos
+## Encender la TV por WiFi
 
-- Más marcas: Hisense VIDAA, Vizio, Philips.
-- Prender la TV cuando está apagada del todo (Wake-on-LAN).
-- Elegir uno mismo las páginas favoritas.
+La app aprende las direcciones MAC al conectar una TV prendida y las guarda en **Mis TVs**.
+Si el modelo no las informa, tocá **Editar** en esa TV e ingresá la MAC de WiFi o de cable que
+aparece en sus ajustes de red. Podés guardar ambas, separadas por una coma.
+
+La TV debe seguir enchufada y tener activado el encendido por red. Según la marca se llama
+*Encender con dispositivo móvil*, *Encender TV con móvil*, *Inicio rápido* o *Encendido remoto*.
+La app envía Wake-on-LAN y también intenta el encendido directo si el modelo lo admite.
+No se puede encender una TV desenchufada ni garantizar el encendido si su placa de red se apaga
+por completo. Si falla, la app indica qué opción revisar en la TV.
+
+## Detección y conexión
+
+La búsqueda combina anuncios **SSDP** y un barrido de las IPs de la red; las TVs guardadas se
+prueban primero. Usa la máscara real del WiFi o Ethernet para calcular la difusión de Wake-on-LAN.
+En redes muy grandes el barrido se limita a los 1022 vecinos del segmento local; SSDP puede
+aportar otras IPs y siempre queda disponible la entrada manual.
+
+Si el router tiene una red de invitados o aislamiento entre dispositivos, conectá el teléfono
+y la TV a la red principal y permití la comunicación entre ellos. La detección no puede evitar
+un bloqueo del router.
+
+El servicio de conexión funciona mientras hay una sesión de TV. No usa el modo WiFi de baja
+latencia ni se reinicia por sí solo al perderse el proceso de la app.
+
+## Identificador de la app
+
+El identificador y el paquete son `ar.com.josemascherpa.controltv`.
+Android lo considera una app distinta de `com.example.controltv`: si tenías la versión anterior,
+vas a tener que conectar tus TVs y configurar tus preferencias nuevamente. No desinstales la
+anterior hasta comprobar que tenés lo que necesitás.
+
+La firma de versiones para distribución, GitHub Releases y las tiendas quedan para más adelante.
+
+## Pruebas y contribuciones
+
+```bash
+./gradlew :app:testDebugUnitTest       # dominio, preferencias, controladores y ViewModel
+./gradlew :app:lintDebug               # revisión estática de Android
+./gradlew :app:connectedDebugAndroidTest  # interfaz; requiere emulador o teléfono
+```
+
+Las pruebas de red usan respuestas simuladas; la compatibilidad final y el encendido deben
+validarse también con TVs físicas. Para contribuir, seguí la arquitectura, el idioma y los pasos
+para agregar una marca de [CLAUDE.md](CLAUDE.md) y la guía [CONTRIBUTING.md](CONTRIBUTING.md).
+
+## Compatibilidad pendiente
+
+Hisense **VIDAA**, **Vizio SmartCast** y Philips con **Saphi/Titan/JointSpace** necesitan
+implementaciones y validación específicas según el modelo. No están incluidas como marcas
+compatibles nativas. Hisense y Philips con **Google TV / Android TV o Roku** ya se controlan
+mediante esos protocolos.

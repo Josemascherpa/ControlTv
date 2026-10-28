@@ -8,7 +8,7 @@ syntax = "proto2";
 
 package polo.wire.protobuf;
 
-option java_package = "com.example.controltv.data.tv.googletv.proto";
+option java_package = "ar.com.josemascherpa.controltv.data.tv.googletv.proto";
 option java_multiple_files = true;
 option optimize_for = LITE_RUNTIME;
 

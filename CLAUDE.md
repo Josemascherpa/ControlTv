@@ -122,14 +122,14 @@ controltv/
 │   ├── controller/         TvController (básico) + TextInput, WebBrowser, ContentSearch, PowerOn,
 │   │                       HardwareAddress (MAC para Wake-on-LAN); la fábrica
 │   ├── repository/         TvDiscovery, CredentialStore, KnownTvs ("Mis TVs"), PairedDevices,
-│   │                       SearchHistory, TvWaker
+│   │                       SearchHistory, RemotePreferences (favoritos y modo simple), TvWaker
 │   ├── session/            TvSession: la TV conectada ahora
 │   ├── web/                WebLinks: arma URLs de búsqueda
 │   └── usecase/            ConnectToTvUseCase, TurnOnTvUseCase, WebSearchUseCase
 ├── data/                   implementaciones concretas
 │   ├── network/            clientes OkHttp, WebSockets, ioCall (conversión de errores), WakeOnLanSender
 │   ├── local/              SharedPreferences (una clase por interfaz)
-│   ├── discovery/          NetworkTvScanner (recorre la red) y la interfaz TvDetector
+│   ├── discovery/          NetworkTvScanner (SSDP + barrido acotado), LocalSubnet y TvDetector
 │   └── tv/<marca>/         <Marca>Controller + <Marca>Detector; DefaultTvControllerFactory
 │                           (googletv/ además tiene el emparejamiento, la identidad y el canal TLS)
 ├── di/AppContainer.kt      crea y conecta todo (inyección de dependencias a mano)
@@ -137,7 +137,8 @@ controltv/
     ├── messages/           UserMessage y sus textos
     ├── components/         botones y piezas comunes
     ├── discovery/          DiscoveryViewModel + DiscoveryScreen + KnownTvsList + DebuggingSetupGuide
-    └── remote/             RemoteViewModel (+ RemoteActions), RemoteScreen, ControlTab, InternetTab
+    └── remote/             RemoteViewModel (+ RemoteActions), RemoteScreen (también modo simple),
+                            ControlTab, InternetTab, FavoriteSites, MouseTab
 ```
 
 - Las funciones extra de cada TV salen de las interfaces que implementa su controlador
@@ -164,4 +165,6 @@ controltv/
 ```
 ./gradlew :app:compileDebugKotlin   # compilar
 ./gradlew :app:testDebugUnitTest    # tests
+./gradlew :app:lintDebug            # revisión estática
+./gradlew :app:connectedDebugAndroidTest # interfaz con emulador o teléfono
 ```

@@ -5,7 +5,7 @@ plugins {
 }
 
 android {
-    namespace = "com.example.controltv"
+    namespace = "ar.com.josemascherpa.controltv"
     compileSdk {
         version = release(36) {
             minorApiLevel = 1
@@ -13,7 +13,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.example.controltv"
+        applicationId = "ar.com.josemascherpa.controltv"
         minSdk = 24
         targetSdk = 36
         versionCode = 2
@@ -77,6 +77,8 @@ dependencies {
     implementation(libs.protobuf.kotlin.lite)
     implementation(libs.bouncycastle.pkix)
     testImplementation(libs.junit)
+    testImplementation("org.json:json:20240303")
+    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:${libs.versions.coroutines.get()}")
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     androidTestImplementation(libs.androidx.espresso.core)
